@@ -43,7 +43,7 @@ export const getMarkerIcon = (incidentType, incidentSeverity) => {
     <path fill="#ffffff" transform="translate(8, 8) scale(1)" d="${path}"/>
   </svg>`;
 
-  return `data:image/svg+xml;charset=UTF-8,\${encodeURIComponent(svg)}`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
 export const getSmartSuggestion = (inc) => {
