@@ -220,7 +220,7 @@ export default function AuthorityView() {
             <Marker
               key={incident.id}
               position={{ lat: incident.location.lat, lng: incident.location.lng }}
-              icon={getMarkerIcon(incident.severity)}
+              icon={getMarkerIcon(incident.type, incident.severity)}
               onClick={() => setSelectedIncident(incident)}
             />
           ))}
