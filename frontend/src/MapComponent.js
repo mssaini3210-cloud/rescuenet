@@ -1,6 +1,6 @@
 import { GoogleMap, LoadScript, Marker, InfoWindow } from "@react-google-maps/api";
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "./firebase";
 
 const containerStyle = {
@@ -43,10 +43,16 @@ function MapComponent() {
   
   // Phase 4 & 5 State
   const [filterRadius, setFilterRadius] = useState(5);
-  const [userLocation, setUserLocation] = useState(null); // start null to prevent New Delhi flash
+  const [userLocation, setUserLocation] = useState(null); 
   
   // Hovered Incident state
   const [hoveredIncident, setHoveredIncident] = useState(null);
+
+  // Authority & Action State (Phases 6-10)
+  const [isAuthorityMode, setIsAuthorityMode] = useState(false);
+  const [activeFilter, setActiveFilter] = useState('All');
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const [responderNote, setResponderNote] = useState('');
 
   // REAL-TIME LISTENER
   useEffect(() => {
@@ -56,6 +62,11 @@ function MapComponent() {
         ...doc.data()
       }));
       setIncidents(data);
+      // Update selected incident in real-time if it's open
+      setSelectedIncident(prev => {
+        if (!prev) return null;
+        return data.find(i => i.id === prev.id) || null;
+      });
     });
 
     return () => unsubscribe();
@@ -76,7 +87,7 @@ function MapComponent() {
     }
   }, []);
 
-  // Modal & Location Handlers
+  // Handlers
   const handleOpenModal = () => {
     setIsModalOpen(true);
     handleGetLocation();
@@ -104,12 +115,12 @@ function MapComponent() {
         },
         (error) => {
           console.error(error);
-          setLocation({ lat: center.lat, lng: center.lng }); // fallback to center
+          setLocation({ lat: center.lat, lng: center.lng }); 
           setLocationStatus('Failed to get location. Using default center.');
         }
       );
     } else {
-      setLocation({ lat: center.lat, lng: center.lng }); // fallback
+      setLocation({ lat: center.lat, lng: center.lng }); 
       setLocationStatus('Geolocation not supported. Using default center.');
     }
   };
@@ -123,7 +134,6 @@ function MapComponent() {
     
     setIsSubmitting(true);
     try {
-      // Play Easter Egg Audio
       const audio = new Audio('/indigo.mp3');
       audio.play().catch(e => console.log('Audio autoplay blocked', e));
 
@@ -133,7 +143,8 @@ function MapComponent() {
         severity: severity,
         location: location,
         status: "reported",
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        notes: []
       });
       handleCloseModal();
     } catch (error) {
@@ -142,6 +153,24 @@ function MapComponent() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleUpdateStatus = async (id, newStatus) => {
+    try {
+      const docRef = doc(db, "incidents", id);
+      await updateDoc(docRef, { status: newStatus });
+    } catch (e) { console.error("Update failed", e); }
+  };
+
+  const handleAddNote = async (id) => {
+    if (!responderNote.trim()) return;
+    try {
+      const docRef = doc(db, "incidents", id);
+      await updateDoc(docRef, {
+        notes: arrayUnion({ text: responderNote, time: new Date().toISOString() })
+      });
+      setResponderNote('');
+    } catch (e) { console.error("Note failed", e); }
   };
 
   const getMarkerIcon = (incidentSeverity) => {
@@ -153,14 +182,34 @@ function MapComponent() {
     }
   };
 
+  const getSmartSuggestion = (inc) => {
+    if (inc.status === 'resolved') return { text: "Incident resolved successfully.", urgent: false };
+    if (inc.status === 'reported') return { text: "🧠 Smart Action: Verify incident credibility immediately.", urgent: inc.severity === 'Critical' };
+    if (inc.status === 'verified') return { text: "🧠 Smart Action: Dispatch emergency responder to location.", urgent: inc.severity === 'Critical' };
+    if (inc.status === 'assigned') return { text: "🧠 Smart Action: Monitor ground progress and add notes.", urgent: false };
+    return { text: "🧠 Smart Action: Review incident.", urgent: false };
+  };
+
   const filteredIncidents = incidents.filter(incident => {
     if (!incident.location || !userLocation) return false;
     const distance = getDistanceFromLatLonInKm(
       userLocation.lat, userLocation.lng,
       incident.location.lat, incident.location.lng
     );
-    const radiusLimit = Number(filterRadius) || 5; // Fallback if input is cleared
-    return distance <= radiusLimit;
+    const radiusLimit = Number(filterRadius) || 5; 
+    
+    // Check Authority Filters
+    const matchesAuthFilter = isAuthorityMode && activeFilter !== 'All' 
+      ? incident.status === activeFilter.toLowerCase() 
+      : true;
+
+    return distance <= radiusLimit && matchesAuthFilter;
+  });
+
+  const nearbyCritical = incidents.find(inc => {
+    if (!inc.location || !userLocation || inc.status === 'resolved' || inc.severity !== 'Critical') return false;
+    const dist = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, inc.location.lat, inc.location.lng);
+    return dist <= 2; // Critical within 2km logic
   });
 
   if (!userLocation) {
@@ -173,6 +222,51 @@ function MapComponent() {
 
   return (
     <>
+      {/* 🚨 Proactive Alert Banner (Phase 10) */}
+      {nearbyCritical && (
+        <div className="critical-banner">
+          🚨 DANGER: Critical {nearbyCritical.type} incident reported within 2km of your location!
+        </div>
+      )}
+
+      {/* Authority Mode Toggle Header */}
+      <div className="top-header" style={{ top: nearbyCritical ? '60px' : '20px' }}>
+        <button 
+          className={`auth-toggle ${isAuthorityMode ? 'active' : ''}`}
+          onClick={() => setIsAuthorityMode(!isAuthorityMode)}
+        >
+          {isAuthorityMode ? '🛡️ Authority Mode Active' : '🧑‍💻 Switch to Authority'}
+        </button>
+      </div>
+
+      {/* 🧑‍🚒 Authority Dashboard Sidebar (Phase 6) */}
+      <div className={`authority-sidebar ${!isAuthorityMode ? 'hidden' : ''}`} style={{ top: nearbyCritical ? '44px' : '0' }}>
+        <div className="sidebar-header">Operational Command</div>
+        
+        <div className="quick-filters">
+          {['All', 'Reported', 'Verified', 'Assigned', 'Resolved'].map(filter => (
+            <button 
+              key={filter} 
+              className={`filter-chip ${activeFilter === filter ? 'active' : ''}`}
+              onClick={() => setActiveFilter(filter)}
+            >
+              {filter}
+            </button>
+          ))}
+        </div>
+
+        <div className="sidebar-list">
+          {filteredIncidents.length === 0 ? <p style={{color: '#666'}}>No incidents match criteria.</p> : null}
+          {filteredIncidents.map(inc => (
+            <div key={inc.id} className="incident-card" onClick={() => setSelectedIncident(inc)}>
+              <h4>{inc.type} Incident</h4>
+              <p>{inc.description.substring(0, 40)}...</p>
+              <span className={`badge badge-${inc.status || 'reported'}`}>{inc.status || 'reported'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <LoadScript googleMapsApiKey="AIzaSyDHY9Jn_bwWnHZdn5f_fGjy9J9AKDqupPk">
         <GoogleMap
           mapContainerStyle={containerStyle}
@@ -189,28 +283,21 @@ function MapComponent() {
                   lng: incident.location.lng
                 }}
                 icon={getMarkerIcon(incident.severity)}
-                onMouseOver={() => setHoveredIncident(incident)}
-                onMouseOut={() => setHoveredIncident(null)}
+                onMouseOver={() => !isAuthorityMode && setHoveredIncident(incident)}
+                onMouseOut={() => !isAuthorityMode && setHoveredIncident(null)}
+                onClick={() => setSelectedIncident(incident)}
               />
             );
           })}
           
-          {/* HOVER INFO WINDOW */}
-          {hoveredIncident && (
+          {/* HOVER INFO WINDOW (Citizens Only) */}
+          {hoveredIncident && !isAuthorityMode && (
             <InfoWindow
-              position={{
-                lat: hoveredIncident.location.lat,
-                lng: hoveredIncident.location.lng
-              }}
+              position={{ lat: hoveredIncident.location.lat, lng: hoveredIncident.location.lng }}
               options={{ disableAutoPan: true }}
             >
-              <div className="info-window" onMouseOver={() => setHoveredIncident(hoveredIncident)} onMouseOut={() => setHoveredIncident(null)}>
-                <h3>
-                  {hoveredIncident.type === 'Fire' ? '🔥' : 
-                   hoveredIncident.type === 'Accident' ? '🚗' : 
-                   hoveredIncident.type === 'Medical' ? '🏥' : 
-                   hoveredIncident.type === 'Hazard' ? '🚧' : '⚠️'} {hoveredIncident.type}
-                </h3>
+              <div className="info-window">
+                <h3>{hoveredIncident.type}</h3>
                 <p>{hoveredIncident.description}</p>
                 <span className={`badge badge-${hoveredIncident.status || 'reported'}`}>
                   {hoveredIncident.status || 'Reported'}
@@ -222,7 +309,7 @@ function MapComponent() {
       </LoadScript>
 
       {/* FILTER CONTROL PANEL */}
-      <div className="filter-panel">
+      <div className="filter-panel" style={{ top: nearbyCritical ? '60px' : '20px' }}>
         <h4>📡 Local Incidents</h4>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
           <input 
@@ -232,7 +319,7 @@ function MapComponent() {
             onChange={(e) => {
               let val = parseInt(e.target.value);
               if (isNaN(val)) setFilterRadius('');
-              else if (val > 50) setFilterRadius(50); // Performance boundary
+              else if (val > 50) setFilterRadius(50); 
               else setFilterRadius(val);
             }}
             className="form-control"
@@ -244,14 +331,14 @@ function MapComponent() {
         </div>
       </div>
 
-      {/* FAB */}
+      {/* REPORT FAB */}
       <div className="fab-container">
         <button className="report-fab" onClick={handleOpenModal}>
           <span>🚨</span> Report Incident
         </button>
       </div>
 
-      {/* Modal */}
+      {/* REPORT INCIDENT MODAL */}
       {isModalOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') handleCloseModal() }}>
           <div className="modal-content">
@@ -263,11 +350,7 @@ function MapComponent() {
             <form onSubmit={handleSubmitReport}>
               <div className="form-group">
                 <label>Incident Type</label>
-                <select 
-                  className="form-control" 
-                  value={incidentType} 
-                  onChange={(e) => setIncidentType(e.target.value)}
-                >
+                <select className="form-control" value={incidentType} onChange={(e) => setIncidentType(e.target.value)}>
                   <option value="Accident">🚗 Accident</option>
                   <option value="Fire">🔥 Fire</option>
                   <option value="Medical">🏥 Medical Emergency</option>
@@ -278,11 +361,7 @@ function MapComponent() {
 
               <div className="form-group">
                 <label>Severity</label>
-                <select 
-                  className="form-control" 
-                  value={severity} 
-                  onChange={(e) => setSeverity(e.target.value)}
-                >
+                <select className="form-control" value={severity} onChange={(e) => setSeverity(e.target.value)}>
                   <option value="Critical">🔴 Critical</option>
                   <option value="Moderate">🟡 Moderate</option>
                   <option value="Low">🟢 Low</option>
@@ -291,18 +370,12 @@ function MapComponent() {
 
               <div className="form-group">
                 <label>Description</label>
-                <textarea 
-                  className="form-control" 
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the situation briefly..."
-                  required
-                />
+                <textarea className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} required />
               </div>
 
               <div className="form-group">
-                <label>Location Update</label>
-                <div className={`location-status ${locationStatus.includes('success') ? 'success' : locationStatus.includes('Fetching') ? '' : 'error'}`}>
+                <label>Location Status</label>
+                <div style={{fontSize: '13px', color: locationStatus.includes('success') ? '#2e7d32' : '#d32f2f'}}>
                   {locationStatus}
                 </div>
               </div>
@@ -314,6 +387,90 @@ function MapComponent() {
           </div>
         </div>
       )}
+
+      {/* DETAILED ACTION MODAL (Phases 7,8,9) */}
+      {selectedIncident && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') setSelectedIncident(null) }}>
+          <div className="modal-content" style={{maxWidth: '500px'}}>
+            <div className="modal-header">
+              <h2>{selectedIncident.type} Incident</h2>
+              <button className="close-btn" onClick={() => setSelectedIncident(null)}>&times;</button>
+            </div>
+
+            <div style={{marginBottom: '20px'}}>
+              <span className={`badge badge-${selectedIncident.status || 'reported'}`} style={{marginRight: '10px'}}>
+                {selectedIncident.status || 'Reported'}
+              </span>
+              <span style={{fontSize: '13px', color: '#666', fontWeight: 600}}>
+                {selectedIncident.severity} Severity
+              </span>
+            </div>
+
+            <p style={{fontSize: '15px'}}>{selectedIncident.description}</p>
+
+            {/* Smart Suggestions (Phase 9) */}
+            {isAuthorityMode && (
+              <div className={`smart-suggestion ${getSmartSuggestion(selectedIncident).urgent ? 'urgent' : ''}`}>
+                {getSmartSuggestion(selectedIncident).text}
+              </div>
+            )}
+
+            {/* Lifecycle Buttons (Phase 7) */}
+            {isAuthorityMode && selectedIncident.status !== 'resolved' && (
+              <div className="action-buttons">
+                {selectedIncident.status === 'reported' && (
+                  <button className="btn-action btn-verify" onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')}>
+                    Verify Incident
+                  </button>
+                )}
+                {selectedIncident.status === 'verified' && (
+                  <button className="btn-action btn-assign" onClick={() => handleUpdateStatus(selectedIncident.id, 'assigned')}>
+                    Assign Responder
+                  </button>
+                )}
+                {selectedIncident.status === 'assigned' && (
+                  <button className="btn-action btn-resolve" onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')}>
+                    Mark Resolved
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Ground Truth Layers / Responder Logs (Phase 8) */}
+            <h4 style={{marginTop: '25px', marginBottom: '10px', fontSize: '15px', color: '#333'}}>Responder Logs</h4>
+            <div className="responder-logs">
+              {(!selectedIncident.notes || selectedIncident.notes.length === 0) ? (
+                <p style={{color: '#999', margin: 0, fontSize: '13px'}}>No updates yet.</p>
+              ) : (
+                selectedIncident.notes.map((n, i) => (
+                  <div key={i} className="log-item">
+                    <span style={{color: '#888', marginRight: '8px', fontSize: '11px'}}>
+                      {new Date(n.time).toLocaleTimeString()}
+                    </span>
+                    {n.text}
+                  </div>
+                ))
+              )}
+            </div>
+
+            {isAuthorityMode && selectedIncident.status !== 'resolved' && (
+              <form 
+                className="log-input-group" 
+                onSubmit={(e) => { e.preventDefault(); handleAddNote(selectedIncident.id); }}
+              >
+                <input 
+                  type="text" 
+                  placeholder="e.g., Ambulance dispatched..."
+                  value={responderNote}
+                  onChange={(e) => setResponderNote(e.target.value)}
+                />
+                <button type="submit">Update</button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
     </>
   );
 }
