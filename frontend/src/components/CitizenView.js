@@ -116,37 +116,35 @@ export default function CitizenView() {
         </div>
       )}
 
-      <LoadScript googleMapsApiKey="AIzaSyDHY9Jn_bwWnHZdn5f_fGjy9J9AKDqupPk">
-        <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
-          {nearbyIncidents.map((incident) => (
-            <Marker
-              key={incident.id}
-              position={{ lat: incident.location.lat, lng: incident.location.lng }}
-              icon={getMarkerIcon(incident.severity)}
-              onClick={() => setSelectedIncident(incident)}
-            />
-          ))}
-          
-          {selectedIncident && (
-            <InfoWindow
-              position={{ lat: selectedIncident.location.lat, lng: selectedIncident.location.lng }}
-              onCloseClick={() => setSelectedIncident(null)}
-            >
-              <div className="info-window">
-                <h3>{selectedIncident.type} Incident</h3>
-                <p style={{marginBottom: '5px'}}>{selectedIncident.description}</p>
-                <div style={{ margin: '8px 0', fontSize: '12px', color: '#555', borderTop: '1px solid #eee', paddingTop: '5px' }}>
-                  <strong>Severity:</strong> {selectedIncident.severity}<br/>
-                  <strong>Reported:</strong> {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : 'Just now'}
-                </div>
-                <span className={`badge badge-${selectedIncident.status || 'reported'}`}>
-                  {selectedIncident.status || 'Reported'}
-                </span>
+      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
+        {nearbyIncidents.map((incident) => (
+          <Marker
+            key={incident.id}
+            position={{ lat: incident.location.lat, lng: incident.location.lng }}
+            icon={getMarkerIcon(incident.severity)}
+            onClick={() => setSelectedIncident(incident)}
+          />
+        ))}
+        
+        {selectedIncident && (
+          <InfoWindow
+            position={{ lat: selectedIncident.location.lat, lng: selectedIncident.location.lng }}
+            onCloseClick={() => setSelectedIncident(null)}
+          >
+            <div className="info-window">
+              <h3>{selectedIncident.type} Incident</h3>
+              <p style={{marginBottom: '5px'}}>{selectedIncident.description}</p>
+              <div style={{ margin: '8px 0', fontSize: '12px', color: '#555', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                <strong>Severity:</strong> {selectedIncident.severity}<br/>
+                <strong>Reported:</strong> {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : 'Just now'}
               </div>
-            </InfoWindow>
-          )}
-        </GoogleMap>
-      </LoadScript>
+              <span className={`badge badge-${selectedIncident.status || 'reported'}`}>
+                {selectedIncident.status || 'Reported'}
+              </span>
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
 
       <div className="fab-container">
         <button className="report-fab" onClick={handleOpenModal}>

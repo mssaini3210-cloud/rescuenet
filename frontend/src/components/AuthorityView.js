@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
+import React, { useState, useMemo } from 'react';
+import { GoogleMap, Marker, Circle } from "@react-google-maps/api";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
@@ -7,6 +7,47 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { getDistanceFromLatLonInKm, getMarkerIcon, getSmartSuggestion } from "../utils";
 
 const containerStyle = { width: "100%", height: "100vh" };
+
+function kMeans(data, k, maxIterations = 50) {
+  if (data.length === 0) return [];
+  if (data.length <= k) return data.map(p => ({ lat: p.lat, lng: p.lng, weight: 1 }));
+
+  let centroids = data.slice(0, k).map(p => ({ lat: p.lat, lng: p.lng }));
+  let clusters = [];
+
+  for (let iter = 0; iter < maxIterations; iter++) {
+    clusters = Array.from({length: k}, () => []);
+    
+    data.forEach(point => {
+      let minDist = Infinity;
+      let clusterIndex = 0;
+      centroids.forEach((centroid, i) => {
+        const dist = Math.sqrt(Math.pow(point.lat - centroid.lat, 2) + Math.pow(point.lng - centroid.lng, 2));
+        if (dist < minDist) {
+          minDist = dist;
+          clusterIndex = i;
+        }
+      });
+      clusters[clusterIndex].push(point);
+    });
+    
+    let changed = false;
+    clusters.forEach((cluster, i) => {
+      if (cluster.length > 0) {
+        const newLat = cluster.reduce((sum, p) => sum + p.lat, 0) / cluster.length;
+        const newLng = cluster.reduce((sum, p) => sum + p.lng, 0) / cluster.length;
+        if (Math.abs(centroids[i].lat - newLat) > 0.0001 || Math.abs(centroids[i].lng - newLng) > 0.0001) {
+          changed = true;
+        }
+        centroids[i] = { lat: newLat, lng: newLng };
+      }
+    });
+    
+    if (!changed) break;
+  }
+  
+  return centroids.map((c, i) => ({ ...c, weight: clusters[i].length })).filter(c => c.weight > 0);
+}
 
 export default function AuthorityView() {
   const incidents = useIncidents();
@@ -18,6 +59,7 @@ export default function AuthorityView() {
   const [severityFilter, setSeverityFilter] = useState('All');
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [responderNote, setResponderNote] = useState('');
+  const [isPredictiveMode, setIsPredictiveMode] = useState(false);
 
   const handleUpdateStatus = async (id, newStatus) => {
     try {
@@ -92,6 +134,13 @@ export default function AuthorityView() {
     return distance <= radiusLimit && matchesAuthFilter;
   });
 
+  const clusterCentroids = useMemo(() => {
+    if (!isPredictiveMode || filteredIncidents.length === 0) return [];
+    const points = filteredIncidents.filter(inc => inc.location).map(inc => inc.location);
+    const optimalK = Math.min(5, Math.ceil(points.length / 3)); 
+    return kMeans(points, optimalK);
+  }, [isPredictiveMode, filteredIncidents]);
+
   return (
     <>
       <div className="authority-sidebar" style={{ top: '60px' }}>
@@ -136,10 +185,23 @@ export default function AuthorityView() {
             </div>
           ))}
         </div>
+
+        <div style={{ marginTop: '10px', marginBottom: '10px' }}>
+          <button 
+            style={{ 
+              width: '100%', padding: '12px', background: isPredictiveMode ? '#9c27b0' : '#f3e5f5', 
+              color: isPredictiveMode ? '#fff' : '#6a1b9a', border: '1px solid #9c27b0', 
+              borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', 
+              justifyContent: 'center', gap: '8px', alignItems: 'center', transition: 'all 0.3s' 
+            }}
+            onClick={() => setIsPredictiveMode(!isPredictiveMode)}
+          >
+            <span style={{fontSize: '16px'}}>🧠</span> Predictive Threat Map
+          </button>
+        </div>
       </div>
 
-      <LoadScript googleMapsApiKey="AIzaSyDHY9Jn_bwWnHZdn5f_fGjy9J9AKDqupPk">
-        <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
+      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
           {filteredIncidents.map((incident) => (
             <Marker
               key={incident.id}
@@ -148,8 +210,22 @@ export default function AuthorityView() {
               onClick={() => setSelectedIncident(incident)}
             />
           ))}
+          
+          {isPredictiveMode && clusterCentroids.map((cluster, i) => (
+            <Circle
+              key={`cluster-${i}`}
+              center={{ lat: cluster.lat, lng: cluster.lng }}
+              radius={(cluster.weight * 300) + 500} 
+              options={{
+                fillColor: "#ff4b2b",
+                fillOpacity: 0.35,
+                strokeColor: "#ff4b2b",
+                strokeOpacity: 0.8,
+                strokeWeight: 2,
+              }}
+            />
+          ))}
         </GoogleMap>
-      </LoadScript>
 
       <div className="filter-panel" style={{ top: '80px' }}>
         <h4>📡 Local Incidents</h4>
