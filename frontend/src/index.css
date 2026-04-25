@@ -259,8 +259,9 @@ code {
 
 /* Modal Content (Glassmorphism) */
 .modal-content {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 20px;
   padding: 30px;
   width: 90%;
@@ -423,7 +424,7 @@ textarea.form-control {
 
 /* InfoWindow Custom Styling */
 .info-window {
-  padding: 5px;
+  padding: 10px;
   max-width: 250px;
   font-family: 'Inter', sans-serif;
 }
@@ -547,9 +548,10 @@ textarea.form-control {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 320px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
+  width: 340px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255,255,255,0.3);
   z-index: 999;
   box-shadow: 2px 0 20px rgba(0,0,0,0.1);
   display: flex;
@@ -589,21 +591,26 @@ textarea.form-control {
 }
 
 .incident-card {
-  background: white;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
   padding: 15px;
   margin-bottom: 15px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.03);
   cursor: pointer;
   border: 1px solid #eee;
-  transition: all 0.2s;
+  border-left: 5px solid #ccc;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .incident-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-  border-color: #1976d2;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  border-right: 1px solid #1976d2;
 }
+
+.sidebar-border-Critical { border-left-color: #d32f2f; }
+.sidebar-border-Moderate { border-left-color: #f57c00; }
+.sidebar-border-Low { border-left-color: #388e3c; }
 
 .incident-card h4 {
   margin: 0 0 5px 0;
@@ -706,3 +713,47 @@ textarea.form-control {
   border-radius: 6px;
   cursor: pointer;
 }
+
+/* Dispatch Panel Features */
+.dispatch-panel {
+  background: #fdfdfd;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 20px;
+}
+.dispatch-panel h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.dispatch-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.btn-dispatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px 5px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 11px;
+  cursor: pointer;
+  color: white;
+  border: none;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.btn-dispatch:hover { 
+  transform: translateY(-2px); 
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
+}
+.bg-police { background: #1565c0; }
+.bg-ambulance { background: #e53935; }
+.bg-fire { background: #ef6c00; }

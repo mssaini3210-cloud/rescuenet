@@ -44,13 +44,12 @@ function MapComponent() {
   // Phase 4 & 5 State
   const [filterRadius, setFilterRadius] = useState(5);
   const [userLocation, setUserLocation] = useState(null); 
-  
-  // Hovered Incident state
-  const [hoveredIncident, setHoveredIncident] = useState(null);
 
   // Authority & Action State (Phases 6-10)
   const [isAuthorityMode, setIsAuthorityMode] = useState(false);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [typeFilter, setTypeFilter] = useState('All');
+  const [severityFilter, setSeverityFilter] = useState('All');
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [responderNote, setResponderNote] = useState('');
 
@@ -173,6 +172,19 @@ function MapComponent() {
     } catch (e) { console.error("Note failed", e); }
   };
 
+  const handleDispatch = async (unit) => {
+    if (!selectedIncident) return;
+    const time = new Date().toLocaleTimeString();
+    const noteObj = { text: `SYSTEM: ${unit} Dispatched at ${time}`, time: new Date().toISOString() };
+    try {
+      const docRef = doc(db, "incidents", selectedIncident.id);
+      await updateDoc(docRef, {
+        status: 'assigned',
+        notes: arrayUnion(noteObj)
+      });
+    } catch(e) { console.error("Dispatch Failed", e); }
+  };
+
   const getMarkerIcon = (incidentSeverity) => {
     switch(incidentSeverity) {
       case 'Moderate': return 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png';
@@ -199,8 +211,10 @@ function MapComponent() {
     const radiusLimit = Number(filterRadius) || 5; 
     
     // Check Authority Filters
-    const matchesAuthFilter = isAuthorityMode && activeFilter !== 'All' 
-      ? incident.status === activeFilter.toLowerCase() 
+    const matchesAuthFilter = isAuthorityMode 
+      ? (activeFilter === 'All' || incident.status === activeFilter.toLowerCase()) &&
+        (typeFilter === 'All' || incident.type === typeFilter) &&
+        (severityFilter === 'All' || incident.severity === severityFilter)
       : true;
 
     return distance <= radiusLimit && matchesAuthFilter;
@@ -255,10 +269,27 @@ function MapComponent() {
           ))}
         </div>
 
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '15px' }}>
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={{ flex: 1, padding: '5px', borderRadius: '5px', border: '1px solid #ddd' }}>
+            <option value="All">All Types</option>
+            <option value="Accident">Accident</option>
+            <option value="Fire">Fire</option>
+            <option value="Medical">Medical</option>
+            <option value="Hazard">Hazard</option>
+            <option value="Other">Other</option>
+          </select>
+          <select value={severityFilter} onChange={e => setSeverityFilter(e.target.value)} style={{ flex: 1, padding: '5px', borderRadius: '5px', border: '1px solid #ddd' }}>
+            <option value="All">All Severity</option>
+            <option value="Critical">Critical</option>
+            <option value="Moderate">Moderate</option>
+            <option value="Low">Low</option>
+          </select>
+        </div>
+
         <div className="sidebar-list">
           {filteredIncidents.length === 0 ? <p style={{color: '#666'}}>No incidents match criteria.</p> : null}
           {filteredIncidents.map(inc => (
-            <div key={inc.id} className="incident-card" onClick={() => setSelectedIncident(inc)}>
+            <div key={inc.id} className={`incident-card sidebar-border-${inc.severity}`} onClick={() => setSelectedIncident(inc)}>
               <h4>{inc.type} Incident</h4>
               <p>{inc.description.substring(0, 40)}...</p>
               <span className={`badge badge-${inc.status || 'reported'}`}>{inc.status || 'reported'}</span>
@@ -283,24 +314,26 @@ function MapComponent() {
                   lng: incident.location.lng
                 }}
                 icon={getMarkerIcon(incident.severity)}
-                onMouseOver={() => !isAuthorityMode && setHoveredIncident(incident)}
-                onMouseOut={() => !isAuthorityMode && setHoveredIncident(null)}
                 onClick={() => setSelectedIncident(incident)}
               />
             );
           })}
           
-          {/* HOVER INFO WINDOW (Citizens Only) */}
-          {hoveredIncident && !isAuthorityMode && (
+          {/* INFO WINDOW (Citizens Only - Click to open) */}
+          {selectedIncident && !isAuthorityMode && (
             <InfoWindow
-              position={{ lat: hoveredIncident.location.lat, lng: hoveredIncident.location.lng }}
-              options={{ disableAutoPan: true }}
+              position={{ lat: selectedIncident.location.lat, lng: selectedIncident.location.lng }}
+              onCloseClick={() => setSelectedIncident(null)}
             >
               <div className="info-window">
-                <h3>{hoveredIncident.type}</h3>
-                <p>{hoveredIncident.description}</p>
-                <span className={`badge badge-${hoveredIncident.status || 'reported'}`}>
-                  {hoveredIncident.status || 'Reported'}
+                <h3>{selectedIncident.type} Incident</h3>
+                <p style={{marginBottom: '5px'}}>{selectedIncident.description}</p>
+                <div style={{ margin: '8px 0', fontSize: '12px', color: '#555', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                  <strong>Severity:</strong> {selectedIncident.severity}<br/>
+                  <strong>Reported:</strong> {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : 'Just now'}
+                </div>
+                <span className={`badge badge-${selectedIncident.status || 'reported'}`}>
+                  {selectedIncident.status || 'Reported'}
                 </span>
               </div>
             </InfoWindow>
@@ -436,7 +469,25 @@ function MapComponent() {
               </div>
             )}
 
-            {/* Ground Truth Layers / Responder Logs (Phase 8) */}
+            {/* Emergency Dispatch Panel (Phase 11) */}
+            {isAuthorityMode && selectedIncident.status !== 'resolved' && (
+              <div className="dispatch-panel">
+                <h4>🚨 Emergency Dispatch Command</h4>
+                <div className="dispatch-grid">
+                  <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>
+                    <span>🚓</span> Police
+                  </button>
+                  <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>
+                    <span>🚑</span> Medical
+                  </button>
+                  <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>
+                    <span>🚒</span> Fire
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Responder Logs */}
             <h4 style={{marginTop: '25px', marginBottom: '10px', fontSize: '15px', color: '#333'}}>Responder Logs</h4>
             <div className="responder-logs">
               {(!selectedIncident.notes || selectedIncident.notes.length === 0) ? (
