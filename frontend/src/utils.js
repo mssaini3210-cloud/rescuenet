@@ -1,17 +1,17 @@
 export function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   var R = 6371; // Radius of the earth in km
-  var dLat = deg2rad(lat2-lat1);
-  var dLon = deg2rad(lon2-lon1);
-  var a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  var dLat = deg2rad(lat2 - lat1);
+  var dLon = deg2rad(lon2 - lon1);
+  var a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
 export function deg2rad(deg) {
-  return deg * (Math.PI/180);
+  return deg * (Math.PI / 180);
 }
 
 export const getMarkerIcon = (incidentType, incidentSeverity) => {
@@ -20,7 +20,7 @@ export const getMarkerIcon = (incidentType, incidentSeverity) => {
   if (incidentSeverity === 'Low') color = '#66bb6a';
 
   let path = '';
-  switch(incidentType) {
+  switch (incidentType) {
     case 'Fire':
       path = 'M11.66 2.37c-.12-.19-.36-.28-.58-.19-.22.09-.37.31-.38.54C10.59 4.35 9.21 6.55 7.6 8.52c-2.14 2.61-3.6 5.56-3.6 8.48 0 4.42 3.58 8 8 8s8-3.58 8-8c0-3.32-2-6.53-4.88-9.01-.17-.15-.43-.16-.62-.03-.18.13-.26.35-.19.57.73 2.15.54 4.19-.55 5.57-.46.58-1.13.88-1.78.88-1.02 0-1.92-.68-2.33-1.68-.31-.76-.36-1.57-.14-2.34.1-.34.25-.69.45-1.03.11-.18.15-.39.11-.59l-.41-1.96z';
       break;
@@ -43,7 +43,7 @@ export const getMarkerIcon = (incidentType, incidentSeverity) => {
     <path fill="#ffffff" transform="translate(8, 8) scale(1)" d="${path}"/>
   </svg>`;
 
-  return \`data:image/svg+xml;charset=UTF-8,\${encodeURIComponent(svg)}\`;
+  return `data:image/svg+xml;charset=UTF-8,\${encodeURIComponent(svg)}`;
 };
 
 export const getSmartSuggestion = (inc) => {
