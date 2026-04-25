@@ -110,16 +110,8 @@ export default function AuthorityView() {
     } catch(e) { console.error("Dispatch Failed", e); }
   };
 
-  if (!userLocation) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#f5f7fa', color: '#555' }}>
-        <h2>📍 Acquiring your location...</h2>
-      </div>
-    );
-  }
-
   const filteredIncidents = incidents.filter(incident => {
-    if (!incident.location) return false;
+    if (!incident.location || !userLocation) return false;
     const distance = getDistanceFromLatLonInKm(
       userLocation.lat, userLocation.lng,
       incident.location.lat, incident.location.lng
@@ -140,6 +132,14 @@ export default function AuthorityView() {
     const optimalK = Math.min(5, Math.ceil(points.length / 3)); 
     return kMeans(points, optimalK);
   }, [isPredictiveMode, filteredIncidents]);
+
+  if (!userLocation) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#f5f7fa', color: '#555' }}>
+        <h2>📍 Acquiring your location...</h2>
+      </div>
+    );
+  }
 
   return (
     <>
