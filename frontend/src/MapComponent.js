@@ -341,28 +341,30 @@ function MapComponent() {
         </GoogleMap>
       </LoadScript>
 
-      {/* FILTER CONTROL PANEL */}
-      <div className="filter-panel" style={{ top: nearbyCritical ? '60px' : '20px' }}>
-        <h4>📡 Local Incidents</h4>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
-          <input 
-            type="number" 
-            min="1" max="50" 
-            value={filterRadius} 
-            onChange={(e) => {
-              let val = parseInt(e.target.value);
-              if (isNaN(val)) setFilterRadius('');
-              else if (val > 50) setFilterRadius(50); 
-              else setFilterRadius(val);
-            }}
-            className="form-control"
-            style={{ width: '80px', padding: '8px', marginBottom: '0' }}
-          />
-          <span style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
-            km <i>(Max 50)</i>
-          </span>
+      {/* FILTER CONTROL PANEL (Authority Only) */}
+      {isAuthorityMode && (
+        <div className="filter-panel" style={{ top: nearbyCritical ? '60px' : '20px' }}>
+          <h4>📡 Local Incidents</h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+            <input 
+              type="number" 
+              min="1" max="50" 
+              value={filterRadius} 
+              onChange={(e) => {
+                let val = parseInt(e.target.value);
+                if (isNaN(val)) setFilterRadius('');
+                else if (val > 50) setFilterRadius(50); 
+                else setFilterRadius(val);
+              }}
+              className="form-control"
+              style={{ width: '80px', padding: '8px', marginBottom: '0' }}
+            />
+            <span style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+              km <i>(Max 50)</i>
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* REPORT FAB */}
       <div className="fab-container">
