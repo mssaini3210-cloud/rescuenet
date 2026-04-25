@@ -116,37 +116,57 @@ export default function CitizenView() {
         </div>
       )}
 
-      <LoadScript googleMapsApiKey="AIzaSyDHY9Jn_bwWnHZdn5f_fGjy9J9AKDqupPk">
-        <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
-          {nearbyIncidents.map((incident) => (
-            <Marker
-              key={incident.id}
-              position={{ lat: incident.location.lat, lng: incident.location.lng }}
-              icon={getMarkerIcon(incident.severity)}
-              onClick={() => setSelectedIncident(incident)}
-            />
-          ))}
-          
-          {selectedIncident && (
-            <InfoWindow
-              position={{ lat: selectedIncident.location.lat, lng: selectedIncident.location.lng }}
-              onCloseClick={() => setSelectedIncident(null)}
-            >
-              <div className="info-window">
-                <h3>{selectedIncident.type} Incident</h3>
-                <p style={{marginBottom: '5px'}}>{selectedIncident.description}</p>
-                <div style={{ margin: '8px 0', fontSize: '12px', color: '#555', borderTop: '1px solid #eee', paddingTop: '5px' }}>
-                  <strong>Severity:</strong> {selectedIncident.severity}<br/>
-                  <strong>Reported:</strong> {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : 'Just now'}
-                </div>
-                <span className={`badge badge-${selectedIncident.status || 'reported'}`}>
-                  {selectedIncident.status || 'Reported'}
+      <div className="citizen-sidebar">
+        <h2>📍 Nearby Emergencies</h2>
+        {nearbyIncidents.length === 0 ? (
+          <p style={{color: '#666', fontSize: '14px'}}>No active incidents within a 5km radius. Stay safe!</p>
+        ) : null}
+        
+        <div className="sidebar-list">
+          {nearbyIncidents.map(inc => (
+            <div key={inc.id} className={`incident-card sidebar-border-${inc.severity}`} onClick={() => setSelectedIncident(inc)}>
+              <h4>{inc.type} Incident</h4>
+              <p>{inc.description.substring(0, 40)}...</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className={`badge badge-${inc.status || 'reported'}`}>{inc.status || 'reported'}</span>
+                <span style={{ fontSize: '12px', color: '#888', fontWeight: '500' }}>
+                  {getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, inc.location.lat, inc.location.lng).toFixed(1)} km away
                 </span>
               </div>
-            </InfoWindow>
-          )}
-        </GoogleMap>
-      </LoadScript>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
+        {nearbyIncidents.map((incident) => (
+          <Marker
+            key={incident.id}
+            position={{ lat: incident.location.lat, lng: incident.location.lng }}
+            icon={getMarkerIcon(incident.severity)}
+            onClick={() => setSelectedIncident(incident)}
+          />
+        ))}
+        
+        {selectedIncident && (
+          <InfoWindow
+            position={{ lat: selectedIncident.location.lat, lng: selectedIncident.location.lng }}
+            onCloseClick={() => setSelectedIncident(null)}
+          >
+            <div className="info-window">
+              <h3>{selectedIncident.type} Incident</h3>
+              <p style={{marginBottom: '5px'}}>{selectedIncident.description}</p>
+              <div style={{ margin: '8px 0', fontSize: '12px', color: '#555', borderTop: '1px solid #eee', paddingTop: '5px' }}>
+                <strong>Severity:</strong> {selectedIncident.severity}<br/>
+                <strong>Reported:</strong> {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : 'Just now'}
+              </div>
+              <span className={`badge badge-${selectedIncident.status || 'reported'}`}>
+                {selectedIncident.status || 'Reported'}
+              </span>
+            </div>
+          </InfoWindow>
+        )}
+      </GoogleMap>
 
       <div className="fab-container">
         <button className="report-fab" onClick={handleOpenModal}>
