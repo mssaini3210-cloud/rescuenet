@@ -15,6 +15,31 @@ function NavigationBar() {
   );
 }
 
+function SplashScreen() {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+      height: '100vh', backgroundColor: '#0a0a0a', color: '#fff', fontFamily: 'Inter'
+    }}>
+      <img 
+        src="/logo_final.png" 
+        alt="RescueNet Logo" 
+        style={{ width: '250px', marginBottom: '20px', animation: 'pulseLogo 2s infinite' }} 
+      />
+      <h3 style={{ fontWeight: 500, letterSpacing: '2px', color: '#888' }}>INITIALIZING COMMAND CENTER</h3>
+      <style>
+        {`
+          @keyframes pulseLogo {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+          }
+        `}
+      </style>
+    </div>
+  );
+}
+
 function App() {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
@@ -22,11 +47,7 @@ function App() {
   });
 
   if (!isLoaded) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#f5f7fa', color: '#555' }}>
-        <h2>📍 Initializing Map Engine...</h2>
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   return (

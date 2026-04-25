@@ -4,7 +4,7 @@ import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
-import { getDistanceFromLatLonInKm, getMarkerIcon, getSmartSuggestion } from "../utils";
+import { getDistanceFromLatLonInKm, getMarkerIcon, getSmartSuggestion, darkMapStyle } from "../utils";
 
 const containerStyle = { width: "100%", height: "100vh" };
 
@@ -201,7 +201,7 @@ export default function AuthorityView() {
         </div>
       </div>
 
-      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
+      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12} options={{ styles: darkMapStyle, disableDefaultUI: true }}>
           {filteredIncidents.map((incident) => (
             <Marker
               key={incident.id}

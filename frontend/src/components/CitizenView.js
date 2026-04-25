@@ -4,7 +4,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
-import { getDistanceFromLatLonInKm, getMarkerIcon } from "../utils";
+import { getDistanceFromLatLonInKm, getMarkerIcon, darkMapStyle } from "../utils";
 
 const containerStyle = { width: "100%", height: "100vh" };
 const center = { lat: 28.6139, lng: 77.2090 };
@@ -138,7 +138,7 @@ export default function CitizenView() {
         </div>
       </div>
 
-      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
+      <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12} options={{ styles: darkMapStyle, disableDefaultUI: true }}>
         {nearbyIncidents.map((incident) => (
           <Marker
             key={incident.id}
