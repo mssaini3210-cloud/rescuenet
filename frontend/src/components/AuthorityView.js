@@ -278,99 +278,69 @@ export default function AuthorityView() {
 
       {selectedIncident && (
         <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') setSelectedIncident(null) }}>
-          <div className={`modal-content ${selectedIncident.status === 'resolved' ? `modal-resolved theme-bg-${selectedIncident.type.toLowerCase()}` : ''}`} style={{maxWidth: '500px'}}>
+          <div className={`modal-content ${selectedIncident.status === 'resolved' ? `modal-resolved theme-bg-${selectedIncident.type.toLowerCase()}` : ''}`} style={{maxWidth: '550px', transition: 'background-color 0.3s ease'}}>
             {selectedIncident.status === 'resolved' ? (
-              <div className="timeline-report">
-                <div className="modal-header">
-                  <h2 style={{color: 'inherit'}}>✅ {selectedIncident.type} Incident Report</h2>
-                  <button className="close-btn" onClick={() => setSelectedIncident(null)} style={{color: 'inherit'}}>&times;</button>
+              <div className="summary-box" style={{ color: selectedIncident.type === 'Other' ? '#fff' : '#000', padding: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${selectedIncident.type === 'Other' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`, paddingBottom: '15px', marginBottom: '20px' }}>
+                  <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Incident Summary</h2>
+                  <button onClick={() => setSelectedIncident(null)} style={{ background: 'none', border: 'none', fontSize: '28px', cursor: 'pointer', color: 'inherit' }}>&times;</button>
                 </div>
-                
-                <div className="report-summary-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div className="summary-item">
-                    <label>1. Title of the Incident</label>
-                    <div style={{fontWeight: 700, fontSize: '16px'}}>{selectedIncident.severity} {selectedIncident.type} Emergency</div>
-                  </div>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                    <div className="summary-item">
-                      <label>2. Type</label>
-                      <div style={{fontWeight: 600}}>{selectedIncident.type}</div>
-                    </div>
-                    <div className="summary-item">
-                      <label>Category</label>
-                      <div style={{fontWeight: 600}}>{selectedIncident.severity}</div>
-                    </div>
-                  </div>
 
-                  <div className="summary-item">
-                    <label>4. Personnel Involved & Description</label>
-                    <div style={{fontWeight: 600}}>
-                      {(() => {
-                        const units = new Set();
-                        (selectedIncident.notes || []).forEach(n => {
-                          if (n.text.includes('Dispatched')) {
-                            const unit = n.text.split(' ')[1];
-                            if (unit) units.add(unit);
-                          }
-                        });
-                        return units.size > 0 ? Array.from(units).join(', ') + ' Response Teams' : 'Command Center Personnel Only';
-                      })()}
-                    </div>
-                    <div style={{ fontSize: '13px', marginTop: '6px', opacity: 0.85, fontStyle: 'italic' }}>
-                      {(() => {
-                        const fieldNotes = (selectedIncident.notes || []).filter(n => !n.text.startsWith('SYSTEM:'));
-                        return fieldNotes.length > 0 
-                          ? "Descriptions/Logs: " + fieldNotes.map(n => `"${n.text}"`).join(' | ') 
-                          : "No additional field descriptions provided.";
-                      })()}
-                    </div>
+                <div className="summary-item-block" style={{ marginBottom: '20px' }}>
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '15px', textTransform: 'uppercase', opacity: 0.7 }}>1. Title of the Incident</h3>
+                  <div style={{ fontSize: '18px', fontWeight: 700 }}>{selectedIncident.severity} {selectedIncident.type} Incident</div>
+                </div>
+
+                <div className="summary-item-block" style={{ marginBottom: '20px' }}>
+                  <h3 style={{ margin: '0 0 5px 0', fontSize: '15px', textTransform: 'uppercase', opacity: 0.7 }}>2. Type and Category</h3>
+                  <div style={{ fontSize: '16px', fontWeight: 600 }}>
+                    Type: <span style={{ fontWeight: 400 }}>{selectedIncident.type}</span> <br/>
+                    Category: <span style={{ fontWeight: 400 }}>{selectedIncident.severity} Severity</span>
                   </div>
                 </div>
 
-                <h4 style={{marginTop: '20px', marginBottom: '15px', color: 'inherit'}}>3. All Timestamps (Operational Timeline)</h4>
-                <div className="timeline-container">
-                  <div className="timeline-item">
-                     <div className="timeline-dot bg-reported"></div>
-                     <div className="timeline-content">
-                        <div className="timeline-time">{selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleString() : 'N/A'}</div>
-                        <div className="timeline-title">Incident Reported</div>
-                        <div className="timeline-desc">Initial alert received by system.</div>
-                     </div>
+                <div className="summary-item-block" style={{ marginBottom: '20px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', textTransform: 'uppercase', opacity: 0.7 }}>3. All Timestamps</h3>
+                  <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '14px', lineHeight: '1.6' }}>
+                    <li><strong>Reported at:</strong> {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleString() : 'N/A'}</li>
+                    {(selectedIncident.notes || []).map((note, idx) => {
+                      let actionName = 'Log';
+                      if (note.text.includes('Dispatched')) actionName = 'Dispatch';
+                      else if (note.text.includes('Status updated to verified')) actionName = 'Verified';
+                      else if (note.text.includes('Status updated to resolved')) actionName = 'Resolved';
+                      else if (!note.text.startsWith('SYSTEM:')) actionName = 'Responder Note';
+                      
+                      return (
+                        <li key={idx}><strong>{actionName} at:</strong> {new Date(note.time).toLocaleString()}</li>
+                      );
+                    })}
+                  </ul>
+                </div>
+
+                <div className="summary-item-block" style={{ marginBottom: '10px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', textTransform: 'uppercase', opacity: 0.7 }}>4. Names and Description of Personnel Involved</h3>
+                  <div style={{ fontSize: '14px', backgroundColor: selectedIncident.type === 'Other' ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.4)', padding: '15px', borderRadius: '8px' }}>
+                    {(() => {
+                      const personnel = [];
+                      (selectedIncident.notes || []).forEach(n => {
+                        if (n.text.includes('Dispatched')) {
+                          personnel.push({ name: n.text.split(' ')[1] + ' Unit', desc: 'Dispatched to scene' });
+                        } else if (!n.text.startsWith('SYSTEM:')) {
+                          personnel.push({ name: 'Field Responder', desc: n.text });
+                        }
+                      });
+                      
+                      if (personnel.length === 0) return <span>No personnel dispatched or field logs recorded.</span>;
+                      
+                      return (
+                        <ul style={{ margin: 0, paddingLeft: '15px' }}>
+                          {personnel.map((p, i) => (
+                            <li key={i} style={{ marginBottom: '5px' }}><strong>{p.name}:</strong> {p.desc}</li>
+                          ))}
+                        </ul>
+                      );
+                    })()}
                   </div>
-                  
-                  {(selectedIncident.notes || []).map((note, idx) => {
-                     const isSystem = note.text.startsWith('SYSTEM:');
-                     let title = "Field Update";
-                     let desc = note.text;
-                     let dotClass = "bg-default";
-                     
-                     if (isSystem) {
-                       if (note.text.includes('Dispatched')) {
-                         title = "Unit Dispatched";
-                         dotClass = "bg-assigned";
-                       } else if (note.text.includes('verified')) {
-                         title = "Incident Verified";
-                         dotClass = "bg-verified";
-                       } else if (note.text.includes('resolved')) {
-                         title = "Incident Resolved";
-                         dotClass = "bg-resolved";
-                       } else {
-                         title = "System Note";
-                       }
-                     }
-                     
-                     return (
-                       <div className="timeline-item" key={idx}>
-                         <div className={`timeline-dot ${dotClass}`}></div>
-                         <div className="timeline-content">
-                            <div className="timeline-time">{new Date(note.time).toLocaleString()}</div>
-                            <div className="timeline-title">{title}</div>
-                            <div className="timeline-desc">{desc.replace('SYSTEM: ', '')}</div>
-                         </div>
-                       </div>
-                     );
-                  })}
                 </div>
               </div>
             ) : (
