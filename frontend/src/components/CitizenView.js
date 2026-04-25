@@ -5,6 +5,7 @@ import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { getDistanceFromLatLonInKm, getMarkerIcon, darkMapStyle } from "../utils";
+import { analyzeIncident } from "../utils/AIVerificationEngine";
 
 const containerStyle = { width: "100%", height: "100vh" };
 const center = { lat: 28.6139, lng: 77.2090 };
@@ -69,14 +70,31 @@ export default function CitizenView() {
       const audio = new Audio('/indigo.mp3');
       audio.play().catch(e => console.log('Audio autoplay blocked', e));
 
+      const aiAnalysis = analyzeIncident(description, severity, location, incidents);
+      const payloadStatus = aiAnalysis.verified ? 'verified' : 'reported';
+      const initialNotes = [];
+      
+      if (aiAnalysis.verified) {
+        initialNotes.push({
+          text: `⚙️ [AI SYSTEM] Auto-Verified (Confidence: ${aiAnalysis.confidence}%). Urgency: ${aiAnalysis.urgencyScore}/10. Priority dispatch requested for ${aiAnalysis.responseType}. Est. ETA: ${aiAnalysis.eta}`,
+          time: new Date().toISOString()
+        });
+      } else {
+        initialNotes.push({
+          text: `⚙️ [AI SYSTEM] Held for dispatch review. Reason: ${aiAnalysis.reason}`,
+          time: new Date().toISOString()
+        });
+      }
+
       await addDoc(collection(db, "incidents"), {
         type: incidentType,
         description: description,
         severity: severity,
         location: location,
-        status: "reported",
+        status: payloadStatus,
         timestamp: serverTimestamp(),
-        notes: []
+        notes: initialNotes,
+        aiScore: aiAnalysis.urgencyScore
       });
       handleCloseModal();
     } catch (error) {
@@ -89,8 +107,22 @@ export default function CitizenView() {
 
   if (!userLocation) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#f5f7fa', color: '#555' }}>
-        <h2>📍 Acquiring your location...</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#0a0a0a', color: '#fff' }}>
+        <img 
+          src="/logo_final.png" 
+          alt="RescueNet Logo" 
+          style={{ width: '250px', marginBottom: '20px', animation: 'pulseLogo 2s infinite' }} 
+        />
+        <h2 style={{ color: '#aaa', fontWeight: 500, letterSpacing: '1px', fontSize: '18px' }}>📍 SECURING GPS LINK...</h2>
+        <style>
+          {`
+            @keyframes pulseLogo {
+              0% { transform: scale(0.95); opacity: 0.8; }
+              50% { transform: scale(1.05); opacity: 1; }
+              100% { transform: scale(0.95); opacity: 0.8; }
+            }
+          `}
+        </style>
       </div>
     );
   }

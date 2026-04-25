@@ -135,8 +135,22 @@ export default function AuthorityView() {
 
   if (!userLocation) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#f5f7fa', color: '#555' }}>
-        <h2>📍 Acquiring your location...</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', fontFamily: 'Inter', backgroundColor: '#0a0a0a', color: '#fff' }}>
+        <img 
+          src="/logo_final.png" 
+          alt="RescueNet Logo" 
+          style={{ width: '250px', marginBottom: '20px', animation: 'pulseLogo 2s infinite' }} 
+        />
+        <h2 style={{ color: '#aaa', fontWeight: 500, letterSpacing: '1px', fontSize: '18px' }}>📍 SECURING GPS LINK...</h2>
+        <style>
+          {`
+            @keyframes pulseLogo {
+              0% { transform: scale(0.95); opacity: 0.8; }
+              50% { transform: scale(1.05); opacity: 1; }
+              100% { transform: scale(0.95); opacity: 0.8; }
+            }
+          `}
+        </style>
       </div>
     );
   }
@@ -215,13 +229,13 @@ export default function AuthorityView() {
             <Circle
               key={`cluster-${i}`}
               center={{ lat: cluster.lat, lng: cluster.lng }}
-              radius={(cluster.weight * 300) + 500} 
+              radius={(cluster.weight * 100) + 300} 
               options={{
                 fillColor: "#ff4b2b",
-                fillOpacity: 0.35,
+                fillOpacity: 0.12,
                 strokeColor: "#ff4b2b",
-                strokeOpacity: 0.8,
-                strokeWeight: 2,
+                strokeOpacity: 0.4,
+                strokeWeight: 1,
               }}
             />
           ))}
