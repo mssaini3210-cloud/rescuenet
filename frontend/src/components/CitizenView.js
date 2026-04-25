@@ -116,6 +116,28 @@ export default function CitizenView() {
         </div>
       )}
 
+      <div className="citizen-sidebar">
+        <h2>📍 Nearby Emergencies</h2>
+        {nearbyIncidents.length === 0 ? (
+          <p style={{color: '#666', fontSize: '14px'}}>No active incidents within a 5km radius. Stay safe!</p>
+        ) : null}
+        
+        <div className="sidebar-list">
+          {nearbyIncidents.map(inc => (
+            <div key={inc.id} className={`incident-card sidebar-border-${inc.severity}`} onClick={() => setSelectedIncident(inc)}>
+              <h4>{inc.type} Incident</h4>
+              <p>{inc.description.substring(0, 40)}...</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className={`badge badge-${inc.status || 'reported'}`}>{inc.status || 'reported'}</span>
+                <span style={{ fontSize: '12px', color: '#888', fontWeight: '500' }}>
+                  {getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, inc.location.lat, inc.location.lng).toFixed(1)} km away
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12}>
         {nearbyIncidents.map((incident) => (
           <Marker
