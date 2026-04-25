@@ -8,45 +8,33 @@ import { getDistanceFromLatLonInKm, getMarkerIcon, getSmartSuggestion, darkMapSt
 
 const containerStyle = { width: "100%", height: "100vh" };
 
-function kMeans(data, k, maxIterations = 50) {
-  if (data.length === 0) return [];
-  if (data.length <= k) return data.map(p => ({ lat: p.lat, lng: p.lng, weight: 1 }));
-
-  let centroids = data.slice(0, k).map(p => ({ lat: p.lat, lng: p.lng }));
+function calculateDensityClusters(points, radiusKm = 2) {
   let clusters = [];
 
-  for (let iter = 0; iter < maxIterations; iter++) {
-    clusters = Array.from({length: k}, () => []);
-    
-    data.forEach(point => {
-      let minDist = Infinity;
-      let clusterIndex = 0;
-      centroids.forEach((centroid, i) => {
-        const dist = Math.sqrt(Math.pow(point.lat - centroid.lat, 2) + Math.pow(point.lng - centroid.lng, 2));
-        if (dist < minDist) {
-          minDist = dist;
-          clusterIndex = i;
-        }
-      });
-      clusters[clusterIndex].push(point);
-    });
-    
-    let changed = false;
-    clusters.forEach((cluster, i) => {
-      if (cluster.length > 0) {
-        const newLat = cluster.reduce((sum, p) => sum + p.lat, 0) / cluster.length;
-        const newLng = cluster.reduce((sum, p) => sum + p.lng, 0) / cluster.length;
-        if (Math.abs(centroids[i].lat - newLat) > 0.0001 || Math.abs(centroids[i].lng - newLng) > 0.0001) {
-          changed = true;
-        }
-        centroids[i] = { lat: newLat, lng: newLng };
+  for (let pIdx = 0; pIdx < points.length; pIdx++) {
+    const p = points[pIdx];
+    let added = false;
+    for (let cIdx = 0; cIdx < clusters.length; cIdx++) {
+      const cluster = clusters[cIdx];
+      const dist = getDistanceFromLatLonInKm(p.lat, p.lng, cluster.lat, cluster.lng);
+      if (dist <= radiusKm) {
+        cluster.points.push(p);
+        cluster.lat = cluster.points.reduce((sum, cp) => sum + cp.lat, 0) / cluster.points.length;
+        cluster.lng = cluster.points.reduce((sum, cp) => sum + cp.lng, 0) / cluster.points.length;
+        added = true;
+        break;
       }
-    });
-    
-    if (!changed) break;
+    }
+    if (!added) {
+      clusters.push({ lat: p.lat, lng: p.lng, points: [p] });
+    }
   }
-  
-  return centroids.map((c, i) => ({ ...c, weight: clusters[i].length })).filter(c => c.weight > 0);
+
+  return clusters.map(c => ({
+    lat: c.lat,
+    lng: c.lng,
+    weight: c.points.length
+  }));
 }
 
 export default function AuthorityView() {
@@ -142,8 +130,7 @@ export default function AuthorityView() {
   const clusterCentroids = useMemo(() => {
     if (!isPredictiveMode || filteredIncidents.length === 0) return [];
     const points = filteredIncidents.filter(inc => inc.location).map(inc => inc.location);
-    const optimalK = Math.min(5, Math.ceil(points.length / 3)); 
-    return kMeans(points, optimalK);
+    return calculateDensityClusters(points, 2); // Dynamic 2km clustering radius
   }, [isPredictiveMode, filteredIncidents]);
 
   if (!userLocation) {
@@ -229,7 +216,7 @@ export default function AuthorityView() {
       </div>
 
       <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12} options={{ styles: darkMapStyle, disableDefaultUI: true }}>
-          {filteredIncidents.map((incident) => (
+          {!isPredictiveMode && filteredIncidents.map((incident) => (
             <Marker
               key={incident.id}
               position={{ lat: incident.location.lat, lng: incident.location.lng }}
