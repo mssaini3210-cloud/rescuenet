@@ -64,8 +64,21 @@ export default function AuthorityView() {
   const handleUpdateStatus = async (id, newStatus) => {
     try {
       const docRef = doc(db, "incidents", id);
-      await updateDoc(docRef, { status: newStatus });
-      setSelectedIncident(prev => prev && prev.id === id ? { ...prev, status: newStatus } : prev);
+      const timeStr = new Date().toISOString();
+      const statusNote = { text: `SYSTEM: Status updated to ${newStatus}`, time: timeStr };
+
+      await updateDoc(docRef, { 
+        status: newStatus,
+        notes: arrayUnion(statusNote)
+      });
+      setSelectedIncident(prev => {
+        if (prev && prev.id === id) {
+           const notes = prev.notes ? [...prev.notes] : [];
+           notes.push(statusNote);
+           return { ...prev, status: newStatus, notes };
+        }
+        return prev;
+      });
     } catch (e) { console.error("Update failed", e); }
   };
 
@@ -265,93 +278,154 @@ export default function AuthorityView() {
 
       {selectedIncident && (
         <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') setSelectedIncident(null) }}>
-          <div className="modal-content" style={{maxWidth: '500px'}}>
-            <div className="modal-header">
-              <h2>{selectedIncident.type} Incident</h2>
-              <button className="close-btn" onClick={() => setSelectedIncident(null)}>&times;</button>
-            </div>
+          <div className={`modal-content ${selectedIncident.status === 'resolved' ? `modal-resolved theme-bg-${selectedIncident.type.toLowerCase()}` : ''}`} style={{maxWidth: '500px'}}>
+            {selectedIncident.status === 'resolved' ? (
+              <div className="timeline-report">
+                <div className="modal-header">
+                  <h2 style={{color: 'inherit'}}>✅ Incident Resolved</h2>
+                  <button className="close-btn" onClick={() => setSelectedIncident(null)} style={{color: 'inherit'}}>&times;</button>
+                </div>
+                
+                <div className="report-summary-grid">
+                  <div className="summary-item">
+                    <label>Incident</label>
+                    <div style={{fontWeight: 700}}>{selectedIncident.severity} {selectedIncident.type}</div>
+                  </div>
+                  <div className="summary-item">
+                    <label>Location</label>
+                    <div style={{fontWeight: 700}}>{selectedIncident.location.lat.toFixed(4)}, {selectedIncident.location.lng.toFixed(4)}</div>
+                  </div>
+                </div>
 
-            <div style={{marginBottom: '20px'}}>
-              <span className={`badge badge-${selectedIncident.status || 'reported'}`} style={{marginRight: '10px'}}>
-                {selectedIncident.status || 'Reported'}
-              </span>
-              <span style={{fontSize: '13px', color: '#666', fontWeight: 600}}>
-                {selectedIncident.severity} Severity
-              </span>
-            </div>
-
-            <p style={{fontSize: '15px'}}>{selectedIncident.description}</p>
-
-            <div className={`smart-suggestion ${getSmartSuggestion(selectedIncident).urgent ? 'urgent' : ''}`}>
-              {getSmartSuggestion(selectedIncident).text}
-            </div>
-
-            {selectedIncident.status !== 'resolved' && (
-              <div className="action-buttons">
-                {selectedIncident.status === 'reported' && (
-                  <button className="btn-action btn-verify" onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')}>
-                    Verify Incident
-                  </button>
-                )}
-                {selectedIncident.status === 'verified' && (
-                  <button className="btn-action btn-assign" onClick={() => handleUpdateStatus(selectedIncident.id, 'assigned')}>
-                    Assign Responder
-                  </button>
-                )}
-                {selectedIncident.status === 'assigned' && (
-                  <button className="btn-action btn-resolve" onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')}>
-                    Mark Resolved
-                  </button>
-                )}
-              </div>
-            )}
-
-            {selectedIncident.status !== 'resolved' && (
-              <div className="dispatch-panel">
-                <h4>🚨 Emergency Dispatch Command</h4>
-                <div className="dispatch-grid">
-                  <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>
-                    <span>🚓</span> Police
-                  </button>
-                  <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>
-                    <span>🚑</span> Medical
-                  </button>
-                  <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>
-                    <span>🚒</span> Fire
-                  </button>
+                <h4 style={{marginTop: '20px', marginBottom: '15px', color: 'inherit'}}>Operational Timeline</h4>
+                <div className="timeline-container">
+                  <div className="timeline-item">
+                     <div className="timeline-dot bg-reported"></div>
+                     <div className="timeline-content">
+                        <div className="timeline-time">{selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleString() : 'N/A'}</div>
+                        <div className="timeline-title">Incident Reported</div>
+                        <div className="timeline-desc">Initial alert received by system.</div>
+                     </div>
+                  </div>
+                  
+                  {(selectedIncident.notes || []).map((note, idx) => {
+                     const isSystem = note.text.startsWith('SYSTEM:');
+                     let title = "Field Update";
+                     let desc = note.text;
+                     let dotClass = "bg-default";
+                     
+                     if (isSystem) {
+                       if (note.text.includes('Dispatched')) {
+                         title = "Unit Dispatched";
+                         dotClass = "bg-assigned";
+                       } else if (note.text.includes('verified')) {
+                         title = "Incident Verified";
+                         dotClass = "bg-verified";
+                       } else if (note.text.includes('resolved')) {
+                         title = "Incident Resolved";
+                         dotClass = "bg-resolved";
+                       } else {
+                         title = "System Note";
+                       }
+                     }
+                     
+                     return (
+                       <div className="timeline-item" key={idx}>
+                         <div className={`timeline-dot ${dotClass}`}></div>
+                         <div className="timeline-content">
+                            <div className="timeline-time">{new Date(note.time).toLocaleString()}</div>
+                            <div className="timeline-title">{title}</div>
+                            <div className="timeline-desc">{desc.replace('SYSTEM: ', '')}</div>
+                         </div>
+                       </div>
+                     );
+                  })}
                 </div>
               </div>
-            )}
+            ) : (
+              <>
+                <div className="modal-header">
+                  <h2>{selectedIncident.type} Incident</h2>
+                  <button className="close-btn" onClick={() => setSelectedIncident(null)}>&times;</button>
+                </div>
 
-            <h4 style={{marginTop: '25px', marginBottom: '10px', fontSize: '15px', color: '#333'}}>Responder Logs</h4>
-            <div className="responder-logs">
-              {(!selectedIncident.notes || selectedIncident.notes.length === 0) ? (
-                <p style={{color: '#999', margin: 0, fontSize: '13px'}}>No updates yet.</p>
-              ) : (
-                selectedIncident.notes.map((n, i) => (
-                  <div key={i} className="log-item">
-                    <span style={{color: '#888', marginRight: '8px', fontSize: '11px'}}>
-                      {new Date(n.time).toLocaleTimeString()}
-                    </span>
-                    {n.text}
+                <div style={{marginBottom: '20px'}}>
+                  <span className={`badge badge-${selectedIncident.status || 'reported'}`} style={{marginRight: '10px'}}>
+                    {selectedIncident.status || 'Reported'}
+                  </span>
+                  <span style={{fontSize: '13px', color: '#666', fontWeight: 600}}>
+                    {selectedIncident.severity} Severity
+                  </span>
+                </div>
+
+                <p style={{fontSize: '15px'}}>{selectedIncident.description}</p>
+
+                <div className={`smart-suggestion ${getSmartSuggestion(selectedIncident).urgent ? 'urgent' : ''}`}>
+                  {getSmartSuggestion(selectedIncident).text}
+                </div>
+
+                <div className="action-buttons">
+                  {selectedIncident.status === 'reported' && (
+                    <button className="btn-action btn-verify" onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')}>
+                      Verify Incident
+                    </button>
+                  )}
+                  {selectedIncident.status === 'verified' && (
+                    <button className="btn-action btn-assign" onClick={() => handleUpdateStatus(selectedIncident.id, 'assigned')}>
+                      Assign Responder
+                    </button>
+                  )}
+                  {selectedIncident.status === 'assigned' && (
+                    <button className="btn-action btn-resolve" onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')}>
+                      Mark Resolved
+                    </button>
+                  )}
+                </div>
+
+                <div className="dispatch-panel">
+                  <h4>🚨 Emergency Dispatch Command</h4>
+                  <div className="dispatch-grid">
+                    <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>
+                      <span>🚓</span> Police
+                    </button>
+                    <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>
+                      <span>🚑</span> Medical
+                    </button>
+                    <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>
+                      <span>🚒</span> Fire
+                    </button>
                   </div>
-                ))
-              )}
-            </div>
+                </div>
 
-            {selectedIncident.status !== 'resolved' && (
-              <form 
-                className="log-input-group" 
-                onSubmit={(e) => { e.preventDefault(); handleAddNote(selectedIncident.id); }}
-              >
-                <input 
-                  type="text" 
-                  placeholder="e.g., Ambulance dispatched..."
-                  value={responderNote}
-                  onChange={(e) => setResponderNote(e.target.value)}
-                />
-                <button type="submit">Update</button>
-              </form>
+                <h4 style={{marginTop: '25px', marginBottom: '10px', fontSize: '15px', color: '#333'}}>Responder Logs</h4>
+                <div className="responder-logs">
+                  {(!selectedIncident.notes || selectedIncident.notes.length === 0) ? (
+                    <p style={{color: '#999', margin: 0, fontSize: '13px'}}>No updates yet.</p>
+                  ) : (
+                    selectedIncident.notes.map((n, i) => (
+                      <div key={i} className="log-item">
+                        <span style={{color: '#888', marginRight: '8px', fontSize: '11px'}}>
+                          {new Date(n.time).toLocaleTimeString()}
+                        </span>
+                        {n.text}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form 
+                  className="log-input-group" 
+                  onSubmit={(e) => { e.preventDefault(); handleAddNote(selectedIncident.id); }}
+                >
+                  <input 
+                    type="text" 
+                    placeholder="e.g., Ambulance dispatched..."
+                    value={responderNote}
+                    onChange={(e) => setResponderNote(e.target.value)}
+                  />
+                  <button type="submit">Update</button>
+                </form>
+              </>
             )}
           </div>
         </div>

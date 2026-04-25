@@ -613,3 +613,100 @@ textarea.form-control {
 .bg-police { background: rgba(21, 101, 192, 0.9); }
 .bg-ambulance { background: rgba(229, 57, 53, 0.9); }
 .bg-fire { background: rgba(239, 108, 0, 0.9); }
+
+/* Timeline Modal Themes */
+.modal-resolved {
+  color: #111; /* Default to dark text for pastel backgrounds */
+}
+.modal-resolved.theme-bg-fire { background: #fff9c4; }
+.modal-resolved.theme-bg-medical { background: #bbdefb; }
+.modal-resolved.theme-bg-accident { background: #ffcdd2; }
+.modal-resolved.theme-bg-hazard { background: #e0e0e0; }
+.modal-resolved.theme-bg-other { 
+  background: #1a1a1a; 
+  color: #fff;
+}
+
+/* Timeline UI Report */
+.timeline-report {
+  font-family: 'Inter', sans-serif;
+}
+.report-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+  background: rgba(255,255,255,0.4);
+  padding: 15px;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+.modal-resolved.theme-bg-other .report-summary-grid {
+  background: rgba(255,255,255,0.05);
+}
+.summary-item label {
+  font-size: 12px;
+  text-transform: uppercase;
+  opacity: 0.7;
+  margin-bottom: 4px;
+  display: block;
+  font-weight: 600;
+}
+.timeline-container {
+  position: relative;
+  margin-left: 10px;
+  padding-left: 20px;
+  border-left: 2px solid rgba(0,0,0,0.1);
+}
+.modal-resolved.theme-bg-other .timeline-container {
+  border-left-color: rgba(255,255,255,0.1);
+}
+.timeline-item {
+  position: relative;
+  margin-bottom: 20px;
+}
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+.timeline-dot {
+  position: absolute;
+  left: -27px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #999;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px rgba(0,0,0,0.05);
+}
+.modal-resolved.theme-bg-other .timeline-dot {
+  border-color: #1a1a1a;
+}
+.bg-reported { background: #ef5350; }
+.bg-verified { background: #42a5f5; }
+.bg-assigned { background: #ffa726; }
+.bg-resolved { background: #66bb6a; }
+.bg-default { background: #9fa8da; }
+
+.timeline-content {
+  background: rgba(255,255,255,0.5);
+  padding: 12px;
+  border-radius: 8px;
+}
+.modal-resolved.theme-bg-other .timeline-content {
+  background: rgba(255,255,255,0.05);
+}
+.timeline-time {
+  font-size: 11px;
+  opacity: 0.7;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.timeline-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+.timeline-desc {
+  font-size: 13px;
+  opacity: 0.9;
+}
