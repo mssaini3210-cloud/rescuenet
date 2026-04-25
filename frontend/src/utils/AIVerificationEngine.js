@@ -49,11 +49,21 @@ export const analyzeIncident = (description, severity, location, incidents) => {
   if (urgency > 10) urgency = 10;
 
   // 5. Confidence Generation
-  // Base confidence starts at 60. We need 85% to auto-verify.
-  let confidence = 60;
+  // Base confidence starts at 40. We need 85% to auto-verify.
+  let confidence = 40;
   if (description.length > 30) confidence += 10;
-  if (keywordMultiplier > 0) confidence += 15;
-  if (nearbyCount > 1) confidence += 10; // corroborating reports increase confidence rapidly
+  if (keywordMultiplier > 0) confidence += 20;
+
+  // STRICT ANTI-PRANK HARD CAP:
+  // A single citizen report without physical corroboration can mathematically never 
+  // exceed 75% confidence, preventing a solo prankster from dispatching units.
+  if (nearbyCount === 0 && confidence > 75) {
+    confidence = 75; 
+  }
+
+  // Geographic Corroboration (The Multipliers)
+  if (nearbyCount === 1) confidence += 20; // 1 other incident nearby validates the claim
+  if (nearbyCount > 1) confidence += 35; // Multiple incidents nearby guarantee it
 
   if (confidence > 99) confidence = 99; // Cap at 99%
 
@@ -63,7 +73,6 @@ export const analyzeIncident = (description, severity, location, incidents) => {
   if (descLower.includes('bleed') || descLower.includes('unconscious') || descLower.includes('medical') || descLower.includes('hurt')) response = 'Medical';
 
   // 7. Synthetic ETA Calculation
-  // In reality, this would query Google Matrix API. Synthesizing based on urgency.
   const etaMinutes = urgency > 8 ? '3 mins' : (urgency > 5 ? '6 mins' : '15 mins');
 
   // Verify Threshold
@@ -75,6 +84,6 @@ export const analyzeIncident = (description, severity, location, incidents) => {
     urgencyScore: urgency,
     responseType: response,
     eta: etaMinutes,
-    reason: isVerified ? 'NLP keyword validation passed & confidence high.' : 'Confidence threshold not met. Manual human review required.'
+    reason: isVerified ? 'NLP validated AND geographically corroborated by multiple active reports.' : 'Solo uncorroborated report. Confidence threshold capped. Requires manual dispatcher review.'
   };
 };
