@@ -282,22 +282,53 @@ export default function AuthorityView() {
             {selectedIncident.status === 'resolved' ? (
               <div className="timeline-report">
                 <div className="modal-header">
-                  <h2 style={{color: 'inherit'}}>✅ Incident Resolved</h2>
+                  <h2 style={{color: 'inherit'}}>✅ {selectedIncident.type} Incident Report</h2>
                   <button className="close-btn" onClick={() => setSelectedIncident(null)} style={{color: 'inherit'}}>&times;</button>
                 </div>
                 
-                <div className="report-summary-grid">
+                <div className="report-summary-grid" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <div className="summary-item">
-                    <label>Incident</label>
-                    <div style={{fontWeight: 700}}>{selectedIncident.severity} {selectedIncident.type}</div>
+                    <label>1. Title of the Incident</label>
+                    <div style={{fontWeight: 700, fontSize: '16px'}}>{selectedIncident.severity} {selectedIncident.type} Emergency</div>
                   </div>
+                  
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                    <div className="summary-item">
+                      <label>2. Type</label>
+                      <div style={{fontWeight: 600}}>{selectedIncident.type}</div>
+                    </div>
+                    <div className="summary-item">
+                      <label>Category</label>
+                      <div style={{fontWeight: 600}}>{selectedIncident.severity}</div>
+                    </div>
+                  </div>
+
                   <div className="summary-item">
-                    <label>Location</label>
-                    <div style={{fontWeight: 700}}>{selectedIncident.location.lat.toFixed(4)}, {selectedIncident.location.lng.toFixed(4)}</div>
+                    <label>4. Personnel Involved & Description</label>
+                    <div style={{fontWeight: 600}}>
+                      {(() => {
+                        const units = new Set();
+                        (selectedIncident.notes || []).forEach(n => {
+                          if (n.text.includes('Dispatched')) {
+                            const unit = n.text.split(' ')[1];
+                            if (unit) units.add(unit);
+                          }
+                        });
+                        return units.size > 0 ? Array.from(units).join(', ') + ' Response Teams' : 'Command Center Personnel Only';
+                      })()}
+                    </div>
+                    <div style={{ fontSize: '13px', marginTop: '6px', opacity: 0.85, fontStyle: 'italic' }}>
+                      {(() => {
+                        const fieldNotes = (selectedIncident.notes || []).filter(n => !n.text.startsWith('SYSTEM:'));
+                        return fieldNotes.length > 0 
+                          ? "Descriptions/Logs: " + fieldNotes.map(n => `"${n.text}"`).join(' | ') 
+                          : "No additional field descriptions provided.";
+                      })()}
+                    </div>
                   </div>
                 </div>
 
-                <h4 style={{marginTop: '20px', marginBottom: '15px', color: 'inherit'}}>Operational Timeline</h4>
+                <h4 style={{marginTop: '20px', marginBottom: '15px', color: 'inherit'}}>3. All Timestamps (Operational Timeline)</h4>
                 <div className="timeline-container">
                   <div className="timeline-item">
                      <div className="timeline-dot bg-reported"></div>
