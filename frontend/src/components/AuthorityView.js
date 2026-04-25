@@ -329,6 +329,25 @@ export default function AuthorityView() {
                     })()}
                   </div>
                 </div>
+
+                <div className="summary-item-block" style={{ marginBottom: '10px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '15px', textTransform: 'uppercase', opacity: 0.7 }}>5. Response Time</h3>
+                  <div style={{ fontSize: '16px', fontWeight: 600 }}>
+                    {(() => {
+                      if (!selectedIncident.timestamp) return 'N/A';
+                      const reportedTime = selectedIncident.timestamp.toDate();
+                      const resolutionNote = (selectedIncident.notes || []).find(n => n.text.includes('Status updated to resolved'));
+                      if (!resolutionNote) return 'N/A';
+                      
+                      const diffMs = new Date(resolutionNote.time) - reportedTime;
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffSecs = Math.floor((diffMs % 60000) / 1000);
+                      
+                      if (diffMins > 0) return `${diffMins} minutes and ${diffSecs} seconds`;
+                      return `${diffSecs} seconds`;
+                    })()}
+                  </div>
+                </div>
               </div>
             ) : (
               <>
