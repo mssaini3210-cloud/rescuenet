@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useCrashDetection } from "../hooks/useCrashDetection";
@@ -16,15 +17,24 @@ export default function CitizenView() {
   const userLocation = useGeolocation();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [incidentType, setIncidentType] = useState('Accident');
+  const [reportStep, setReportStep] = useState(1);
+  const [incidentType, setIncidentType] = useState('');
   const [description, setDescription] = useState('');
   const [severity, setSeverity] = useState('Critical');
   const [location, setLocation] = useState(null);
+  const [address, setAddress] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
   const [filterRadius, setFilterRadius] = useState(5);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
+  // Smart Form States
+  const [tags, setTags] = useState([]);
+  const [imageFile, setImageFile] = useState(null);
+  const [involvedCount, setInvolvedCount] = useState('1 person');
+  const [isSafe, setIsSafe] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+
   const [selectedIncident, setSelectedIncident] = useState(null);
 
   const { isActive, requestPermissions, deactivate, crashDetected, setCrashDetected, simulateCrashWithPayload } = useCrashDetection();
@@ -85,11 +95,28 @@ export default function CitizenView() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setIncidentType('Accident');
+    setReportStep(1);
+    setIncidentType('');
     setDescription('');
     setSeverity('Critical');
+    setTags([]);
+    setImageFile(null);
+    setIsSafe(false);
     setLocation(null);
+    setAddress('');
     setLocationStatus('');
+  };
+
+  const fetchAddress = async (lat, lng) => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        setAddress(data.display_name);
+      }
+    } catch (e) {
+      console.log('Reverse geocoding failed', e);
+    }
   };
 
   const handleGetLocation = () => {
@@ -99,21 +126,59 @@ export default function CitizenView() {
         (position) => {
           setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
           setLocationStatus('Location acquired successfully!');
+          fetchAddress(position.coords.latitude, position.coords.longitude);
         },
         (error) => {
           console.error(error);
           setLocation(center); 
           setLocationStatus('Failed to get location. Using default center.');
+          fetchAddress(center.lat, center.lng);
         }
       );
     } else {
       setLocation(center); 
       setLocationStatus('Geolocation not supported. Using default center.');
+      fetchAddress(center.lat, center.lng);
     }
   };
 
+  const getDeviceContext = async () => {
+    let batteryLevel = 'Unknown';
+    if (navigator.getBattery) {
+      try {
+        const battery = await navigator.getBattery();
+        batteryLevel = `${Math.round(battery.level * 100)}%`;
+      } catch (e) {}
+    }
+    const network = navigator.connection ? navigator.connection.effectiveType : 'Unknown';
+    return { battery: batteryLevel, network };
+  };
+
+  const startRecording = () => {
+    if (!('webkitSpeechRecognition' in window)) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+    // eslint-disable-next-line no-undef
+    const recognition = new webkitSpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setDescription(prev => prev ? prev + ' ' + transcript : transcript);
+    };
+    recognition.onerror = (event) => {
+      console.error(event.error);
+      setIsRecording(false);
+    };
+    recognition.onend = () => setIsRecording(false);
+    recognition.start();
+  };
+
   const handleSubmitReport = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     if (!location) {
       alert("Please wait for location to be acquired.");
       return;
@@ -124,6 +189,14 @@ export default function CitizenView() {
       const audio = new Audio('/indigo.mp3');
       audio.play().catch(e => console.log('Audio autoplay blocked', e));
 
+      let finalImageUrl = '';
+      if (imageFile) {
+        const imageRef = ref(storage, `incidents/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(imageRef, imageFile);
+        finalImageUrl = await getDownloadURL(imageRef);
+      }
+
+      const deviceContext = await getDeviceContext();
       const aiAnalysis = analyzeIncident(description, severity, location, incidents);
       const payloadStatus = aiAnalysis.verified ? 'verified' : 'reported';
       const initialNotes = [];
@@ -133,11 +206,6 @@ export default function CitizenView() {
           text: `[AI SYSTEM] Auto-Verified (Confidence: ${aiAnalysis.confidence}%). Urgency: ${aiAnalysis.urgencyScore}/10. Priority dispatch requested for ${aiAnalysis.responseType}. Est. ETA: ${aiAnalysis.eta}`,
           time: new Date().toISOString()
         });
-      } else {
-        initialNotes.push({
-          text: `[AI SYSTEM] Held for dispatch review. Reason: ${aiAnalysis.reason}`,
-          time: new Date().toISOString()
-        });
       }
 
       await addDoc(collection(db, "incidents"), {
@@ -145,6 +213,13 @@ export default function CitizenView() {
         description: description,
         severity: severity,
         location: location,
+        address: address || `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`,
+        tags: tags,
+        involvedCount: involvedCount,
+        isSafe: isSafe,
+        imageUrl: finalImageUrl,
+        battery: deviceContext.battery,
+        network: deviceContext.network,
         status: payloadStatus,
         timestamp: serverTimestamp(),
         notes: initialNotes,
@@ -356,49 +431,141 @@ export default function CitizenView() {
 
       {isModalOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') handleCloseModal() }}>
-          <div className="modal-content">
+          <div className="smart-modal-content">
             <div className="modal-header">
-              <h2>Report Incident</h2>
+              <h2>Report Emergency</h2>
               <button className="close-btn" onClick={handleCloseModal}>&times;</button>
             </div>
             
-            <form onSubmit={handleSubmitReport}>
-              <div className="form-group">
-                <label>Incident Type</label>
-                <select className="form-control" value={incidentType} onChange={(e) => setIncidentType(e.target.value)}>
-                  <option value="Accident">Accident</option>
-                  <option value="Fire">Fire</option>
-                  <option value="Medical">Medical Emergency</option>
-                  <option value="Hazard">Road Hazard</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Severity</label>
-                <select className="form-control" value={severity} onChange={(e) => setSeverity(e.target.value)}>
-                  <option value="Critical">Critical</option>
-                  <option value="Moderate">Moderate</option>
-                  <option value="Low">Low</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Description</label>
-                <textarea className="form-control" value={description} onChange={(e) => setDescription(e.target.value)} required />
-              </div>
-
-              <div className="form-group">
-                <label>Location Status</label>
-                <div style={{fontSize: '13px', color: locationStatus.includes('success') ? '#2e7d32' : '#d32f2f'}}>
-                  {locationStatus}
+            {reportStep === 1 && (
+              <div className="step-container">
+                <h3>What is the emergency?</h3>
+                <div className="type-grid">
+                  {['Accident', 'Fire', 'Medical', 'Hazard', 'Other'].map(type => (
+                    <button 
+                      key={type} 
+                      className={`type-btn ${incidentType === type ? 'selected' : ''}`}
+                      onClick={() => {
+                        setIncidentType(type);
+                        setReportStep(2);
+                      }}
+                    >
+                      <div className="icon">
+                        {type === 'Accident' ? '🚗' : type === 'Fire' ? '🔥' : type === 'Medical' ? '🩹' : type === 'Hazard' ? '⚠️' : '❓'}
+                      </div>
+                      <span>{type}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
+            )}
 
-              <button type="submit" className={`submit-btn theme-${incidentType.toLowerCase()}`} disabled={isSubmitting || !location}>
-                {isSubmitting ? 'Reporting...' : 'Submit Report'}
-              </button>
-            </form>
+            {reportStep === 2 && (
+              <div className="step-container">
+                <h3>Severity & Context</h3>
+                <div className="severity-grid">
+                   <button className={`sev-btn critical ${severity === 'Critical' ? 'active' : ''}`} onClick={() => setSeverity('Critical')}>Critical</button>
+                   <button className={`sev-btn moderate ${severity === 'Moderate' ? 'active' : ''}`} onClick={() => setSeverity('Moderate')}>Moderate</button>
+                   <button className={`sev-btn low ${severity === 'Low' ? 'active' : ''}`} onClick={() => setSeverity('Low')}>Low</button>
+                </div>
+                
+                {(incidentType === 'Accident' || incidentType === 'Medical') && (
+                  <div style={{ marginTop: '20px' }}>
+                    <h4>People Involved:</h4>
+                    <div className="people-grid">
+                      {['1 person', '2-3 people', 'Multiple people'].map(count => (
+                        <button key={count} className={`count-btn ${involvedCount === count ? 'active' : ''}`} onClick={() => setInvolvedCount(count)}>
+                          {count}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="nav-btn secondary" onClick={() => setReportStep(1)}>Back</button>
+                  <button className="nav-btn primary" onClick={() => setReportStep(3)}>Next: Evidence</button>
+                </div>
+              </div>
+            )}
+
+            {reportStep === 3 && (
+              <div className="step-container">
+                <h3>Smart Evidence Collection</h3>
+                <div className="evidence-section">
+                  <button 
+                    className={`mic-btn ${isRecording ? 'recording' : ''}`} 
+                    onMouseDown={startRecording}
+                  >
+                    {isRecording ? 'Listening...' : '🎤 Tap to Speak Details'}
+                  </button>
+                  <textarea 
+                    className="smart-textarea" 
+                    placeholder="Or type details here..." 
+                    value={description} 
+                    onChange={e => setDescription(e.target.value)} 
+                  />
+                </div>
+
+                <div className="tags-section">
+                  <h4>Quick Tags (Tap to add):</h4>
+                  <div className="tags-grid">
+                    {['High speed impact', 'Vehicle rollover', 'Pedestrian hit', 'Unconscious', 'Bleeding heavily', 'Fire spreading'].map(tag => (
+                      <button 
+                        key={tag} 
+                        className={`tag-chip ${tags.includes(tag) ? 'active' : ''}`}
+                        onClick={() => {
+                          if (tags.includes(tag)) setTags(tags.filter(t => t !== tag));
+                          else setTags([...tags, tag]);
+                        }}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="upload-section" style={{marginTop: '20px'}}>
+                  <label className="upload-btn">
+                    📷 Upload Photo Evidence
+                    <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
+                      if (e.target.files[0]) setImageFile(e.target.files[0]);
+                    }} />
+                  </label>
+                  {imageFile && <span style={{marginLeft: '10px', fontSize: '12px'}}>{imageFile.name}</span>}
+                </div>
+
+                <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="nav-btn secondary" onClick={() => setReportStep(2)}>Back</button>
+                  <button className="nav-btn primary" onClick={() => setReportStep(4)}>Review</button>
+                </div>
+              </div>
+            )}
+
+            {reportStep === 4 && (
+              <div className="step-container">
+                <h3>Final Review</h3>
+                <div className="review-card">
+                  <p><strong>Type:</strong> {incidentType} ({severity})</p>
+                  <p><strong>Involved:</strong> {involvedCount}</p>
+                  <p><strong>Tags:</strong> {tags.length > 0 ? tags.join(', ') : 'None'}</p>
+                  <p><strong>Description:</strong> {description || 'None'}</p>
+                  <p><strong>Location:</strong> {address || locationStatus}</p>
+                  
+                  <div style={{marginTop: '15px', display: 'flex', alignItems: 'center', gap: '10px'}}>
+                    <input type="checkbox" id="safe-check" checked={isSafe} onChange={e => setIsSafe(e.target.checked)} style={{width: '20px', height: '20px'}}/>
+                    <label htmlFor="safe-check" style={{fontSize: '16px', fontWeight: '500'}}>I am currently safe.</label>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>
+                  <button className="nav-btn secondary" onClick={() => setReportStep(3)}>Back</button>
+                  <button className="nav-btn submit" onClick={handleSubmitReport} disabled={isSubmitting}>
+                    {isSubmitting ? 'Sending...' : 'SEND SOS NOW'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

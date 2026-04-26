@@ -385,9 +385,37 @@ export default function AuthorityView() {
                   <span style={{fontSize: '13px', color: '#666', fontWeight: 600}}>
                     {selectedIncident.severity} Severity
                   </span>
+                  {selectedIncident.aiScore && (
+                    <span style={{fontSize: '13px', color: '#ff4b2b', fontWeight: 600, marginLeft: '10px'}}>
+                      AI Confidence: {selectedIncident.aiScore * 10}%
+                    </span>
+                  )}
                 </div>
 
-                <p style={{fontSize: '15px'}}>{selectedIncident.description}</p>
+                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '12px', marginBottom: '20px' }}>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#fff' }}><strong>Address:</strong> {selectedIncident.address || 'Location GPS Only'}</p>
+                  
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                    {selectedIncident.tags && selectedIncident.tags.map(tag => (
+                       <span key={tag} style={{ background: 'rgba(255, 75, 43, 0.2)', color: '#ff4b2b', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '600' }}>{tag}</span>
+                    ))}
+                  </div>
+
+                  <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#ccc' }}><strong>Involved:</strong> {selectedIncident.involvedCount || 'Unknown'} {selectedIncident.isSafe ? '(Reporter is safe)' : ''}</p>
+                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ccc' }}><strong>Description:</strong> {selectedIncident.description}</p>
+                  
+                  <div style={{ display: 'flex', gap: '15px', fontSize: '12px', color: '#888' }}>
+                    <span>🔋 {selectedIncident.battery || 'Unknown'}</span>
+                    <span>📶 {selectedIncident.network || 'Unknown'}</span>
+                  </div>
+
+                  {selectedIncident.imageUrl && (
+                    <div style={{ marginTop: '15px' }}>
+                      <strong style={{ fontSize: '13px', color: '#aaa', display: 'block', marginBottom: '5px' }}>Attached Evidence:</strong>
+                      <img src={selectedIncident.imageUrl} alt="Incident Evidence" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
+                    </div>
+                  )}
+                </div>
 
                 <div className={`smart-suggestion ${getSmartSuggestion(selectedIncident).urgent ? 'urgent' : ''}`}>
                   {getSmartSuggestion(selectedIncident).text}
