@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import * as tf from '@tensorflow/tfjs/dist/tf.js';
+import * as tf from '@tensorflow/tfjs';
 
 export function useCrashDetection() {
   const [model, setModel] = useState(null);
