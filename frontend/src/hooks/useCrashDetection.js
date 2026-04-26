@@ -8,19 +8,26 @@ export function useCrashDetection() {
 
   // Initialize the TFJS model
   useEffect(() => {
+    let isMounted = true;
     const initModel = async () => {
-      // For this Phase 1 Hackathon Prototype, we construct the model structure directly in the browser
-      // In Phase 2, this will be: await tf.loadLayersModel('/crash-model/model.json');
-      const tfModel = tf.sequential();
-      tfModel.add(tf.layers.dense({ units: 16, inputShape: [7], activation: 'relu' }));
-      tfModel.add(tf.layers.dense({ units: 8, activation: 'relu' }));
-      tfModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid' }));
-      
-      tfModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
-      setModel(tfModel);
-      console.log('🤖 TensorFlow.js Model Initialized');
+      try {
+        const tfModel = tf.sequential();
+        const randId = Math.random().toString(36).substring(7);
+        tfModel.add(tf.layers.dense({ units: 16, inputShape: [7], activation: 'relu', name: `l1_${randId}` }));
+        tfModel.add(tf.layers.dense({ units: 8, activation: 'relu', name: `l2_${randId}` }));
+        tfModel.add(tf.layers.dense({ units: 1, activation: 'sigmoid', name: `l3_${randId}` }));
+        
+        tfModel.compile({ optimizer: 'adam', loss: 'binaryCrossentropy' });
+        if (isMounted) {
+          setModel(tfModel);
+          console.log('🤖 TensorFlow.js Model Initialized');
+        }
+      } catch (e) {
+        console.warn("TFJS Init warning:", e);
+      }
     };
     initModel();
+    return () => { isMounted = false; };
   }, []);
 
   // Request hardware sensor permissions (Required for iOS Safari)
