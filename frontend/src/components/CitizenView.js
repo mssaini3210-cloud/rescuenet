@@ -8,6 +8,7 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { useCrashDetection } from "../hooks/useCrashDetection";
 import { getDistanceFromLatLonInKm, getMarkerIcon, darkMapStyle } from "../utils";
 import { analyzeIncident } from "../utils/AIVerificationEngine";
+import { compressAndAnalyzeImage } from "../utils/AIVisionEngine";
 
 const containerStyle = { width: "100%", height: "100vh" };
 const center = { lat: 28.6139, lng: 77.2090 };
@@ -35,6 +36,8 @@ export default function CitizenView() {
   const [isSafe, setIsSafe] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [imageBase64, setImageBase64] = useState('');
 
   const videoRef = React.useRef(null);
   const streamRef = React.useRef(null);
@@ -184,6 +187,30 @@ export default function CitizenView() {
     }
   };
 
+  const handlePhotoSelection = async (file) => {
+    setImageFile(file);
+    setIsScanning(true);
+    try {
+      const result = await compressAndAnalyzeImage(file);
+      setImageBase64(result.compressedBase64);
+      
+      // Auto-populate based on AI
+      if (result.visionTags && result.visionTags.length > 0) {
+        setTags(prev => [...new Set([...prev, ...result.visionTags])]);
+      }
+      if (result.inferredType !== 'Other') {
+         setIncidentType(result.inferredType);
+      }
+      setSeverity(result.inferredSeverity);
+      setInvolvedCount(result.inferredInvolvedCount);
+      
+    } catch (e) {
+      console.error("AI Vision failed", e);
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
   const capturePhoto = () => {
     if (videoRef.current) {
       const canvas = document.createElement('canvas');
@@ -193,7 +220,7 @@ export default function CitizenView() {
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
         const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
-        setImageFile(file);
+        handlePhotoSelection(file);
         stopCamera();
       }, 'image/jpeg');
     }
@@ -234,20 +261,13 @@ export default function CitizenView() {
       const audio = new Audio('/indigo.mp3');
       audio.play().catch(e => console.log('Audio autoplay blocked', e));
 
-      let finalImageUrl = '';
-      if (imageFile) {
-        const imageRef = ref(storage, `incidents/${Date.now()}_${imageFile.name}`);
-        await uploadBytes(imageRef, imageFile);
-        finalImageUrl = await getDownloadURL(imageRef);
-      }
-
       const deviceContext = await getDeviceContext();
       const aiAnalysis = analyzeIncident({
         description,
         severity,
         location,
         tags,
-        imageUrl: finalImageUrl,
+        imageUrl: imageBase64,
         deviceContext
       }, incidents);
       const payloadStatus = aiAnalysis.verified ? 'verified' : 'reported';
@@ -269,7 +289,7 @@ export default function CitizenView() {
         tags: tags,
         involvedCount: involvedCount,
         isSafe: isSafe,
-        imageUrl: finalImageUrl,
+        imageUrl: imageBase64,
         battery: deviceContext.battery,
         network: deviceContext.network,
         status: payloadStatus,
@@ -596,12 +616,13 @@ export default function CitizenView() {
                       <label className="upload-btn" style={{flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.05)', color: '#ccc', borderColor: 'rgba(255,255,255,0.2)'}}>
                         📁 Upload Photo
                         <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
-                          if (e.target.files[0]) setImageFile(e.target.files[0]);
+                          if (e.target.files[0]) handlePhotoSelection(e.target.files[0]);
                         }} />
                       </label>
                     </div>
                   )}
-                  {imageFile && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#81c784', textAlign: 'center', fontWeight: '500'}}>✓ Attached: {imageFile.name}</div>}
+                  {isScanning && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#ffb74d', textAlign: 'center', fontWeight: 'bold', animation: 'pulse 1.5s infinite'}}>Scanning Image with AI...</div>}
+                  {!isScanning && imageFile && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#81c784', textAlign: 'center', fontWeight: '500'}}>✓ Attached & Scanned: {imageFile.name}</div>}
                 </div>
 
                 <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>
