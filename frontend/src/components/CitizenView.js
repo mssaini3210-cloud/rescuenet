@@ -34,6 +34,10 @@ export default function CitizenView() {
   const [involvedCount, setInvolvedCount] = useState('1 person');
   const [isSafe, setIsSafe] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  const videoRef = React.useRef(null);
+  const streamRef = React.useRef(null);
 
   const [selectedIncident, setSelectedIncident] = useState(null);
 
@@ -93,8 +97,17 @@ export default function CitizenView() {
     handleGetLocation();
   };
 
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraOpen(false);
+  };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
+    stopCamera();
     setReportStep(1);
     setIncidentType('');
     setDescription('');
@@ -152,6 +165,38 @@ export default function CitizenView() {
     }
     const network = navigator.connection ? navigator.connection.effectiveType : 'Unknown';
     return { battery: batteryLevel, network };
+  };
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+      streamRef.current = stream;
+      setIsCameraOpen(true);
+      // We need to wait for state update to render video element before assigning stream
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 50);
+    } catch (err) {
+      console.error("Camera access denied or unavailable", err);
+      alert("Could not access the camera. Please check your browser permissions.");
+    }
+  };
+
+  const capturePhoto = () => {
+    if (videoRef.current) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => {
+        const file = new File([blob], `capture_${Date.now()}.jpg`, { type: 'image/jpeg' });
+        setImageFile(file);
+        stopCamera();
+      }, 'image/jpeg');
+    }
   };
 
   const startRecording = () => {
@@ -532,20 +577,31 @@ export default function CitizenView() {
                   </div>
                 </div>
 
-                <div className="upload-section" style={{marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
-                  <label className="upload-btn" style={{flex: 1, textAlign: 'center'}}>
-                    📸 Take Photo
-                    <input type="file" accept="image/*" capture="environment" style={{display: 'none'}} onChange={(e) => {
-                      if (e.target.files[0]) setImageFile(e.target.files[0]);
-                    }} />
-                  </label>
-                  <label className="upload-btn" style={{flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.05)', color: '#ccc', borderColor: 'rgba(255,255,255,0.2)'}}>
-                    📁 Upload Photo
-                    <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
-                      if (e.target.files[0]) setImageFile(e.target.files[0]);
-                    }} />
-                  </label>
-                  {imageFile && <span style={{width: '100%', marginTop: '5px', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Selected: {imageFile.name}</span>}
+                <div className="upload-section" style={{marginTop: '20px'}}>
+                  {isCameraOpen ? (
+                    <div className="camera-container" style={{position: 'relative', borderRadius: '12px', overflow: 'hidden', marginBottom: '10px', background: '#000'}}>
+                      <video ref={videoRef} autoPlay playsInline style={{width: '100%', maxHeight: '300px', objectFit: 'cover'}}></video>
+                      <button type="button" onClick={capturePhoto} style={{position: 'absolute', bottom: '15px', left: '50%', transform: 'translateX(-50%)', padding: '15px 30px', borderRadius: '30px', border: 'none', background: '#ff4b2b', color: '#fff', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.5)'}}>
+                        📸 SNAP
+                      </button>
+                      <button type="button" onClick={stopCamera} style={{position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                        &times;
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                      <button type="button" onClick={startCamera} className="upload-btn" style={{flex: 1, textAlign: 'center'}}>
+                        📸 Take Photo
+                      </button>
+                      <label className="upload-btn" style={{flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.05)', color: '#ccc', borderColor: 'rgba(255,255,255,0.2)'}}>
+                        📁 Upload Photo
+                        <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
+                          if (e.target.files[0]) setImageFile(e.target.files[0]);
+                        }} />
+                      </label>
+                    </div>
+                  )}
+                  {imageFile && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#81c784', textAlign: 'center', fontWeight: '500'}}>✓ Attached: {imageFile.name}</div>}
                 </div>
 
                 <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>
