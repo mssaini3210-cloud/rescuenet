@@ -48,6 +48,7 @@ export default function AuthorityView() {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [responderNote, setResponderNote] = useState('');
   const [isPredictiveMode, setIsPredictiveMode] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const handleUpdateStatus = async (id, newStatus) => {
     try {
@@ -128,10 +129,10 @@ export default function AuthorityView() {
   });
 
   const clusterCentroids = useMemo(() => {
-    if (!isPredictiveMode || filteredIncidents.length === 0) return [];
+    if (filteredIncidents.length === 0) return [];
     const points = filteredIncidents.filter(inc => inc.location).map(inc => inc.location);
     return calculateDensityClusters(points, 2); // Dynamic 2km clustering radius
-  }, [isPredictiveMode, filteredIncidents]);
+  }, [filteredIncidents]);
 
   if (!userLocation) {
     return (
@@ -141,7 +142,7 @@ export default function AuthorityView() {
           alt="RescueNet Logo" 
           style={{ width: '250px', marginBottom: '20px', animation: 'pulseLogo 2s infinite' }} 
         />
-        <h2 style={{ color: '#aaa', fontWeight: 500, letterSpacing: '1px', fontSize: '18px' }}>📍 SECURING GPS LINK...</h2>
+        <h2 style={{ color: '#aaa', fontWeight: 500, letterSpacing: '1px', fontSize: '18px' }}>SECURING GPS LINK...</h2>
         <style>
           {`
             @keyframes pulseLogo {
@@ -157,7 +158,26 @@ export default function AuthorityView() {
 
   return (
     <>
-      <div className="authority-sidebar" style={{ top: '60px' }}>
+      <button 
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        style={{
+          position: 'absolute',
+          top: '80px',
+          left: isSidebarOpen ? '360px' : '20px',
+          zIndex: 1000,
+          background: 'rgba(20, 20, 20, 0.85)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '10px 15px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        {isSidebarOpen ? '◀ Collapse' : '▶ Expand'}
+      </button>
+
+      <div className={`authority-sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`} style={{ top: '60px' }}>
         <div className="sidebar-header">Operational Command</div>
         
         <div className="quick-filters">
@@ -210,22 +230,23 @@ export default function AuthorityView() {
             }}
             onClick={() => setIsPredictiveMode(!isPredictiveMode)}
           >
-            <span style={{fontSize: '16px'}}>🧠</span> Predictive Threat Map
+            <span style={{fontSize: '16px'}}></span> Threat Analysis Map
           </button>
         </div>
       </div>
 
       <GoogleMap mapContainerStyle={containerStyle} center={userLocation} zoom={12} options={{ styles: darkMapStyle, disableDefaultUI: true }}>
-          {!isPredictiveMode && filteredIncidents.map((incident) => (
+          {filteredIncidents.map((incident) => (
             <Marker
-              key={incident.id}
+              key={`marker-${incident.id}`}
               position={{ lat: incident.location.lat, lng: incident.location.lng }}
               icon={getMarkerIcon(incident.type, incident.severity)}
               onClick={() => setSelectedIncident(incident)}
+              visible={!isPredictiveMode}
             />
           ))}
           
-          {isPredictiveMode && clusterCentroids.map((cluster, i) => (
+          {clusterCentroids.map((cluster, i) => (
             <Circle
               key={`cluster-${i}`}
               center={{ lat: cluster.lat, lng: cluster.lng }}
@@ -236,13 +257,14 @@ export default function AuthorityView() {
                 strokeColor: "#ff4b2b",
                 strokeOpacity: 0.4,
                 strokeWeight: 1,
+                visible: isPredictiveMode
               }}
             />
           ))}
         </GoogleMap>
 
       <div className="filter-panel" style={{ top: '80px' }}>
-        <h4>📡 Local Incidents</h4>
+        <h4>Local Incidents</h4>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
           <input 
             type="number" 
@@ -390,16 +412,16 @@ export default function AuthorityView() {
                 </div>
 
                 <div className="dispatch-panel">
-                  <h4>🚨 Emergency Dispatch Command</h4>
+                  <h4>Emergency Dispatch Command</h4>
                   <div className="dispatch-grid">
                     <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>
-                      <span>🚓</span> Police
+                      Police
                     </button>
                     <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>
-                      <span>🚑</span> Medical
+                      Medical
                     </button>
                     <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>
-                      <span>🚒</span> Fire
+                      Fire Dept
                     </button>
                   </div>
                 </div>

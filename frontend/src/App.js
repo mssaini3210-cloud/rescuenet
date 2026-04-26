@@ -9,8 +9,8 @@ function NavigationBar() {
   const location = useLocation();
   return (
     <div className="global-nav">
-      <Link to="/" className={location.pathname === '/' ? 'active' : ''}>🧑‍💻 Citizen View</Link>
-      <Link to="/authority" className={location.pathname === '/authority' ? 'active' : ''}>🛡️ Command Center</Link>
+      <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Citizen Portal</Link>
+      <Link to="/authority" className={location.pathname === '/authority' ? 'active' : ''}>Operations Center</Link>
     </div>
   );
 }

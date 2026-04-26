@@ -372,6 +372,15 @@ textarea.form-control {
   flex-direction: column;
   overflow-y: auto;
   transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateX(0);
+}
+
+.authority-sidebar.collapsed {
+  transform: translateX(-100%);
+}
+
+.citizen-sidebar.collapsed {
+  transform: translateX(-120%);
 }
 
 .authority-sidebar {

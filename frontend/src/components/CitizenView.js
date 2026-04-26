@@ -21,6 +21,8 @@ export default function CitizenView() {
   const [location, setLocation] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [locationStatus, setLocationStatus] = useState('');
+  const [filterRadius, setFilterRadius] = useState(5);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [selectedIncident, setSelectedIncident] = useState(null);
 
@@ -76,12 +78,12 @@ export default function CitizenView() {
       
       if (aiAnalysis.verified) {
         initialNotes.push({
-          text: `⚙️ [AI SYSTEM] Auto-Verified (Confidence: ${aiAnalysis.confidence}%). Urgency: ${aiAnalysis.urgencyScore}/10. Priority dispatch requested for ${aiAnalysis.responseType}. Est. ETA: ${aiAnalysis.eta}`,
+          text: `[AI SYSTEM] Auto-Verified (Confidence: ${aiAnalysis.confidence}%). Urgency: ${aiAnalysis.urgencyScore}/10. Priority dispatch requested for ${aiAnalysis.responseType}. Est. ETA: ${aiAnalysis.eta}`,
           time: new Date().toISOString()
         });
       } else {
         initialNotes.push({
-          text: `⚙️ [AI SYSTEM] Held for dispatch review. Reason: ${aiAnalysis.reason}`,
+          text: `[AI SYSTEM] Held for dispatch review. Reason: ${aiAnalysis.reason}`,
           time: new Date().toISOString()
         });
       }
@@ -113,7 +115,7 @@ export default function CitizenView() {
           alt="RescueNet Logo" 
           style={{ width: '250px', marginBottom: '20px', animation: 'pulseLogo 2s infinite' }} 
         />
-        <h2 style={{ color: '#aaa', fontWeight: 500, letterSpacing: '1px', fontSize: '18px' }}>📍 SECURING GPS LINK...</h2>
+        <h2 style={{ color: '#aaa', fontWeight: 500, letterSpacing: '1px', fontSize: '18px' }}>SECURING GPS LINK...</h2>
         <style>
           {`
             @keyframes pulseLogo {
@@ -131,7 +133,7 @@ export default function CitizenView() {
   const nearbyIncidents = incidents.filter(incident => {
     if (!incident.location) return false;
     const distance = getDistanceFromLatLonInKm(userLocation.lat, userLocation.lng, incident.location.lat, incident.location.lng);
-    return distance <= 5;
+    return distance <= filterRadius;
   });
 
   const nearbyCritical = incidents.find(inc => {
@@ -144,14 +146,33 @@ export default function CitizenView() {
     <>
       {nearbyCritical && (
         <div className="critical-banner" style={{ top: '60px' }}>
-          🚨 DANGER: Critical {nearbyCritical.type} incident reported within 2km of your location!
+          CRITICAL ALERT: Critical {nearbyCritical.type} incident reported within 2km of your location!
         </div>
       )}
 
-      <div className="citizen-sidebar">
-        <h2>📍 Nearby Emergencies</h2>
+      <button 
+        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+        style={{
+          position: 'absolute',
+          top: '80px',
+          left: isSidebarOpen ? '370px' : '20px',
+          zIndex: 1000,
+          background: 'rgba(20, 20, 20, 0.85)',
+          color: '#fff',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          padding: '10px 15px',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}
+      >
+        {isSidebarOpen ? '◀ Collapse' : '▶ Expand'}
+      </button>
+
+      <div className={`citizen-sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
+        <h2>Nearby Emergencies</h2>
         {nearbyIncidents.length === 0 ? (
-          <p style={{color: '#666', fontSize: '14px'}}>No active incidents within a 5km radius. Stay safe!</p>
+          <p style={{color: '#666', fontSize: '14px'}}>No active incidents within a {filterRadius}km radius. Stay safe!</p>
         ) : null}
         
         <div className="sidebar-list">
@@ -200,9 +221,31 @@ export default function CitizenView() {
         )}
       </GoogleMap>
 
+      <div className="filter-panel" style={{ top: '80px' }}>
+        <h4>Incident Proximity</h4>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '10px' }}>
+          <input 
+            type="number" 
+            min="1" max="50" 
+            value={filterRadius} 
+            onChange={(e) => {
+              let val = parseInt(e.target.value);
+              if (isNaN(val)) setFilterRadius('');
+              else if (val > 50) setFilterRadius(50); 
+              else setFilterRadius(val);
+            }}
+            className="form-control"
+            style={{ width: '80px', padding: '8px', marginBottom: '0' }}
+          />
+          <span style={{ fontSize: '14px', color: '#666', fontWeight: '500' }}>
+            km <i>(Max 50)</i>
+          </span>
+        </div>
+      </div>
+
       <div className="fab-container">
         <button className="report-fab" onClick={handleOpenModal}>
-          <span>🚨</span> Report Incident
+          Submit Incident Report
         </button>
       </div>
 
@@ -218,20 +261,20 @@ export default function CitizenView() {
               <div className="form-group">
                 <label>Incident Type</label>
                 <select className="form-control" value={incidentType} onChange={(e) => setIncidentType(e.target.value)}>
-                  <option value="Accident">🚗 Accident</option>
-                  <option value="Fire">🔥 Fire</option>
-                  <option value="Medical">🏥 Medical Emergency</option>
-                  <option value="Hazard">🚧 Road Hazard</option>
-                  <option value="Other">⚠️ Other</option>
+                  <option value="Accident">Accident</option>
+                  <option value="Fire">Fire</option>
+                  <option value="Medical">Medical Emergency</option>
+                  <option value="Hazard">Road Hazard</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
 
               <div className="form-group">
                 <label>Severity</label>
                 <select className="form-control" value={severity} onChange={(e) => setSeverity(e.target.value)}>
-                  <option value="Critical">🔴 Critical</option>
-                  <option value="Moderate">🟡 Moderate</option>
-                  <option value="Low">🟢 Low</option>
+                  <option value="Critical">Critical</option>
+                  <option value="Moderate">Moderate</option>
+                  <option value="Low">Low</option>
                 </select>
               </div>
 
