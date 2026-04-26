@@ -197,7 +197,14 @@ export default function CitizenView() {
       }
 
       const deviceContext = await getDeviceContext();
-      const aiAnalysis = analyzeIncident(description, severity, location, incidents);
+      const aiAnalysis = analyzeIncident({
+        description,
+        severity,
+        location,
+        tags,
+        imageUrl: finalImageUrl,
+        deviceContext
+      }, incidents);
       const payloadStatus = aiAnalysis.verified ? 'verified' : 'reported';
       const initialNotes = [];
       
@@ -525,14 +532,20 @@ export default function CitizenView() {
                   </div>
                 </div>
 
-                <div className="upload-section" style={{marginTop: '20px'}}>
-                  <label className="upload-btn">
-                    📷 Upload Photo Evidence
+                <div className="upload-section" style={{marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap'}}>
+                  <label className="upload-btn" style={{flex: 1, textAlign: 'center'}}>
+                    📸 Take Photo
+                    <input type="file" accept="image/*" capture="environment" style={{display: 'none'}} onChange={(e) => {
+                      if (e.target.files[0]) setImageFile(e.target.files[0]);
+                    }} />
+                  </label>
+                  <label className="upload-btn" style={{flex: 1, textAlign: 'center', background: 'rgba(255,255,255,0.05)', color: '#ccc', borderColor: 'rgba(255,255,255,0.2)'}}>
+                    📁 Upload Photo
                     <input type="file" accept="image/*" style={{display: 'none'}} onChange={(e) => {
                       if (e.target.files[0]) setImageFile(e.target.files[0]);
                     }} />
                   </label>
-                  {imageFile && <span style={{marginLeft: '10px', fontSize: '12px'}}>{imageFile.name}</span>}
+                  {imageFile && <span style={{width: '100%', marginTop: '5px', fontSize: '12px', color: '#aaa', textAlign: 'center'}}>Selected: {imageFile.name}</span>}
                 </div>
 
                 <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>

@@ -1,13 +1,14 @@
 // src/utils/AIVerificationEngine.js
 
-export const analyzeIncident = (description, severity, location, incidents) => {
+export const analyzeIncident = (payload, incidents) => {
+  const { description = '', severity = 'Moderate', location, tags = [], imageUrl = null } = payload;
   const descLower = description.toLowerCase();
   
   // 1. NLP False-Positive & Spam Check
   const spamWords = ["test", "testing", "fake", "joke", "prank", "lol", "lmao", "pizza", "bored", "idk"];
   const isSpam = spamWords.some(word => descLower.includes(word));
   
-  if (isSpam || description.trim().length < 8) {
+  if (isSpam || (description.trim().length < 8 && tags.length === 0 && !imageUrl)) {
     return {
       verified: false,
       confidence: 12,
@@ -19,18 +20,22 @@ export const analyzeIncident = (description, severity, location, incidents) => {
   }
 
   // 2. Severe Keyword NLP Extraction
-  const criticalWords = ["bleeding", "trapped", "fire", "massive", "unconscious", "explosion", "gun", "armed", "smoke", "crushed"];
+  const criticalWords = ["bleeding", "trapped", "fire", "massive", "unconscious", "explosion", "gun", "armed", "smoke", "crushed", "accident", "crash", "emergency"];
   let keywordMultiplier = 0;
   criticalWords.forEach(word => {
     if (descLower.includes(word)) keywordMultiplier++;
   });
+  tags.forEach(tag => {
+    criticalWords.forEach(word => {
+      if (tag.toLowerCase().includes(word)) keywordMultiplier++;
+    });
+  });
 
   // 3. Cluster Density (K-Means simulation proxy)
-  // If there are other incidents nearby (within 2km), confidence goes up.
   let nearbyCount = 0;
   if (location && incidents) {
     incidents.forEach(inc => {
-      if (inc.location) {
+      if (inc.location && inc.id !== payload.id) {
         const dLat = (inc.location.lat - location.lat) * Math.PI / 180;
         const dLon = (inc.location.lng - location.lng) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -49,34 +54,36 @@ export const analyzeIncident = (description, severity, location, incidents) => {
   if (urgency > 10) urgency = 10;
 
   // 5. Confidence Generation
-  // Base confidence starts at 40. We need 85% to auto-verify.
+  // Base confidence starts at 40. We need 90% to auto-verify now.
   let confidence = 40;
   if (description.length > 30) confidence += 10;
-  if (keywordMultiplier > 0) confidence += 20;
+  if (keywordMultiplier > 0) confidence += 15;
+  if (tags.length > 0) confidence += 10;
+  if (imageUrl) confidence += 25; // Visual evidence is heavily weighted
 
   // STRICT ANTI-PRANK HARD CAP:
-  // A single citizen report without physical corroboration can mathematically never 
-  // exceed 75% confidence, preventing a solo prankster from dispatching units.
-  if (nearbyCount === 0 && confidence > 75) {
+  // A single citizen report without physical corroboration or visual evidence can mathematically never exceed 75%
+  if (nearbyCount === 0 && !imageUrl && confidence > 75) {
     confidence = 75; 
   }
 
   // Geographic Corroboration (The Multipliers)
-  if (nearbyCount === 1) confidence += 20; // 1 other incident nearby validates the claim
-  if (nearbyCount > 1) confidence += 35; // Multiple incidents nearby guarantee it
+  if (nearbyCount === 1) confidence += 15; 
+  if (nearbyCount > 1) confidence += 30; 
 
   if (confidence > 99) confidence = 99; // Cap at 99%
 
   // 6. Response Type Determination
   let response = 'Police';
-  if (descLower.includes('fire') || descLower.includes('smoke') || descLower.includes('burning')) response = 'Fire Dept';
-  if (descLower.includes('bleed') || descLower.includes('unconscious') || descLower.includes('medical') || descLower.includes('hurt')) response = 'Medical';
+  const fullText = descLower + ' ' + tags.join(' ').toLowerCase();
+  if (fullText.includes('fire') || fullText.includes('smoke') || fullText.includes('burning')) response = 'Fire Dept';
+  if (fullText.includes('bleed') || fullText.includes('unconscious') || fullText.includes('medical') || fullText.includes('hurt')) response = 'Medical';
 
   // 7. Synthetic ETA Calculation
   const etaMinutes = urgency > 8 ? '3 mins' : (urgency > 5 ? '6 mins' : '15 mins');
 
-  // Verify Threshold
-  const isVerified = confidence >= 85;
+  // Verify Threshold - Increased to 90
+  const isVerified = confidence >= 90;
 
   return {
     verified: isVerified,
@@ -84,6 +91,6 @@ export const analyzeIncident = (description, severity, location, incidents) => {
     urgencyScore: urgency,
     responseType: response,
     eta: etaMinutes,
-    reason: isVerified ? 'NLP validated AND geographically corroborated by multiple active reports.' : 'Solo uncorroborated report. Confidence threshold capped. Requires manual dispatcher review.'
+    reason: isVerified ? 'High-fidelity data (Images/Tags) or geographic corroboration validated the incident.' : 'Insufficient corroborating evidence or media. Confidence threshold not met. Requires manual dispatcher review.'
   };
 };
