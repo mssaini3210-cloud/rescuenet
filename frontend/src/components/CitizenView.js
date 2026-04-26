@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { GoogleMap, LoadScript, Marker, InfoWindow } from "@react-google-maps/api";
+import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useCrashDetection } from "../hooks/useCrashDetection";
 import { getDistanceFromLatLonInKm, getMarkerIcon, darkMapStyle } from "../utils";
 import { analyzeIncident } from "../utils/AIVerificationEngine";
 
@@ -25,6 +26,57 @@ export default function CitizenView() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   
   const [selectedIncident, setSelectedIncident] = useState(null);
+
+  const { isActive, requestPermissions, deactivate, crashDetected, setCrashDetected, simulateCrashWithPayload } = useCrashDetection();
+  const [countdown, setCountdown] = useState(30);
+
+  React.useEffect(() => {
+    let timer;
+    if (crashDetected) {
+      setCountdown(30);
+      timer = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Play a loud alarm sound
+      const audio = new Audio('/indigo.mp3'); // Fallback if no specific alarm sound
+      audio.play().catch(e => console.log('Audio autoplay blocked', e));
+    }
+    return () => clearInterval(timer);
+  }, [crashDetected]);
+
+  React.useEffect(() => {
+    if (countdown === 0 && crashDetected) {
+      handleAutoSOS();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countdown, crashDetected]);
+
+  const handleAutoSOS = async () => {
+    try {
+      await addDoc(collection(db, "incidents"), {
+        type: 'Accident',
+        description: 'AUTO-DETECTED: High G-Force Impact. User unresponsive.',
+        severity: 'Critical',
+        location: userLocation || center,
+        status: 'reported',
+        timestamp: serverTimestamp(),
+        notes: [{ text: `⚙️ [AI SYSTEM] Crash detected by TensorFlow.js model. User failed to cancel 30-second failsafe. Dispatch immediately.`, time: new Date().toISOString() }],
+        aiScore: 10
+      });
+      alert("SOS SENT AUTOMATICALLY.");
+    } catch (error) {
+      console.error("SOS failed", error);
+    } finally {
+      setCrashDetected(false);
+    }
+  };
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -243,11 +295,64 @@ export default function CitizenView() {
         </div>
       </div>
 
-      <div className="fab-container">
+      <div className="fab-container" style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-end' }}>
+        {!isActive ? (
+          <button className="report-fab" style={{ backgroundColor: '#2196F3' }} onClick={requestPermissions}>
+            <span>🛡️</span> Enable AI Crash Detection
+          </button>
+        ) : (
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="report-fab" style={{ backgroundColor: '#f44336' }} onClick={simulateCrashWithPayload}>
+              <span>💥</span> Simulate Crash
+            </button>
+            <button className="report-fab" style={{ backgroundColor: '#999', width: 'auto' }} onClick={deactivate}>
+              <span>🛑</span> Turn Off AI
+            </button>
+          </div>
+        )}
         <button className="report-fab" onClick={handleOpenModal}>
-          Submit Incident Report
+          <span>🚨</span> Report Incident
         </button>
       </div>
+
+      {crashDetected && (
+        <div className="crash-modal-overlay" style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', 
+          backgroundColor: 'rgba(255, 0, 0, 0.95)', zIndex: 9999,
+          display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+          animation: 'flashRed 1s infinite alternate'
+        }}>
+          <h1 style={{ fontSize: '4rem', color: 'white', margin: 0 }}>CRASH DETECTED</h1>
+          <h2 style={{ fontSize: '2rem', color: 'white', marginBottom: '40px' }}>CALLING AMBULANCE IN</h2>
+          <div style={{ fontSize: '8rem', fontWeight: 'bold', color: 'white', marginBottom: '50px' }}>
+            0:{countdown.toString().padStart(2, '0')}
+          </div>
+          
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <button onClick={() => setCrashDetected(false)} style={{
+              padding: '20px 40px', fontSize: '1.5rem', backgroundColor: '#4CAF50', 
+              color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold'
+            }}>
+              I AM SAFE (CANCEL)
+            </button>
+            <button onClick={handleAutoSOS} style={{
+              padding: '20px 40px', fontSize: '1.5rem', backgroundColor: '#000', 
+              color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 'bold'
+            }}>
+              SEND SOS NOW
+            </button>
+          </div>
+          
+          <style>
+            {`
+              @keyframes flashRed {
+                0% { backgroundColor: rgba(220, 0, 0, 0.95); }
+                100% { backgroundColor: rgba(255, 50, 50, 0.95); }
+              }
+            `}
+          </style>
+        </div>
+      )}
 
       {isModalOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target.className === 'modal-overlay') handleCloseModal() }}>

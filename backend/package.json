@@ -11,6 +11,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@tensorflow/tfjs": "^4.22.0",
+    "csv-parse": "^6.2.1",
     "firebase": "^12.12.1",
     "jimp": "^1.6.1"
   }
