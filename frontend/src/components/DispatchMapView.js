@@ -218,6 +218,8 @@ export default function DispatchMapView() {
       };
       await updateDoc(doc(db, 'incidents', incidentId), {
         status: 'assigned',
+        assignedUnit: facility.name,
+        assignedETA: facility.etaMins,
         notes: arrayUnion(note),
       });
     } catch (e) { console.error(e); }

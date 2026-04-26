@@ -215,7 +215,14 @@ export default function AuthorityView() {
             <div key={inc.id} className={`incident-card sidebar-border-${inc.severity}`} onClick={() => setSelectedIncident(inc)}>
               <h4>{inc.type} Incident</h4>
               <p>{inc.description.substring(0, 40)}...</p>
-              <span className={`badge badge-${inc.status || 'reported'}`}>{inc.status || 'reported'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span className={`badge badge-${inc.status || 'reported'}`}>{inc.status || 'reported'}</span>
+                {inc.assignedUnit && (
+                  <span style={{ fontSize: '11px', color: '#4caf50', fontWeight: 'bold' }}>
+                    🚀 {inc.assignedETA}m
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -408,6 +415,24 @@ export default function AuthorityView() {
                       <span style={{fontSize: '12px', color: '#555'}}>Detected by TensorFlow.js + Geolocation</span>
                     </div>
 
+                    {/* DISPATCH INFO */}
+                    {selectedIncident.assignedUnit && (
+                      <div style={{
+                        background: 'rgba(76, 175, 80, 0.1)', border: '1px solid rgba(76, 175, 80, 0.3)',
+                        borderRadius: '12px', padding: '12px', marginBottom: '16px', display: 'flex',
+                        alignItems: 'center', justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <div style={{fontSize: '11px', color: '#4caf50', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4px'}}>🚀 Unit En Route</div>
+                          <div style={{fontSize: '14px', fontWeight: 700, color: '#fff'}}>{selectedIncident.assignedUnit}</div>
+                        </div>
+                        <div style={{textAlign: 'right'}}>
+                          <div style={{fontSize: '11px', color: '#888', fontWeight: 600, textTransform: 'uppercase'}}>ETA</div>
+                          <div style={{fontSize: '18px', fontWeight: 800, color: '#4caf50'}}>~{selectedIncident.assignedETA}m</div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* NEXUS AI REMARKS */}
                     {selectedIncident.aiReason && (
                       <div style={{background: 'linear-gradient(135deg, rgba(255,75,43,0.08), rgba(255,75,43,0.02))', border: '1px solid rgba(255,75,43,0.25)', borderRadius: '12px', padding: '14px', marginBottom: '16px'}}>
@@ -485,15 +510,7 @@ export default function AuthorityView() {
                       <button className="btn-action btn-resolve" onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')} style={{width: '100%', marginBottom: '14px'}}>Mark Resolved</button>
                     )}
 
-                    {/* DISPATCH */}
-                    <div className="dispatch-panel">
-                      <h4>Emergency Dispatch Command</h4>
-                      <div className="dispatch-grid">
-                        <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>🚓 Police</button>
-                        <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>🚑 Medical</button>
-                        <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>🚒 Fire Dept</button>
-                      </div>
-                    </div>
+
 
                     {/* DISPATCH MAP BUTTON */}
                     <a href={`/dispatch/${selectedIncident.id}`} target="_blank" rel="noopener noreferrer" style={{
