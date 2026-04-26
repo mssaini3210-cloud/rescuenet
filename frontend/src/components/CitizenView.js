@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "../firebase";
+import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useCrashDetection } from "../hooks/useCrashDetection";

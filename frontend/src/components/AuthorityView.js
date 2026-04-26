@@ -4,7 +4,7 @@ import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 import { db } from "../firebase";
 import { useIncidents } from "../hooks/useIncidents";
 import { useGeolocation } from "../hooks/useGeolocation";
-import { getDistanceFromLatLonInKm, getMarkerIcon, getSmartSuggestion, darkMapStyle } from "../utils";
+import { getDistanceFromLatLonInKm, getMarkerIcon, darkMapStyle } from "../utils";
 
 const containerStyle = { width: "100%", height: "100vh" };
 
@@ -91,26 +91,6 @@ export default function AuthorityView() {
     } catch (e) { console.error("Note failed", e); }
   };
 
-  const handleDispatch = async (unit) => {
-    if (!selectedIncident) return;
-    const time = new Date().toLocaleTimeString();
-    const noteObj = { text: `SYSTEM: ${unit} Dispatched at ${time}`, time: new Date().toISOString() };
-    try {
-      const docRef = doc(db, "incidents", selectedIncident.id);
-      await updateDoc(docRef, {
-        status: 'assigned',
-        notes: arrayUnion(noteObj)
-      });
-      setSelectedIncident(prev => {
-        if (prev && prev.id === selectedIncident.id) {
-           const notes = prev.notes ? [...prev.notes] : [];
-           notes.push(noteObj);
-           return { ...prev, status: 'assigned', notes };
-        }
-        return prev;
-      });
-    } catch(e) { console.error("Dispatch Failed", e); }
-  };
 
   const filteredIncidents = incidents.filter(incident => {
     if (!incident.location || !userLocation) return false;
@@ -496,9 +476,9 @@ export default function AuthorityView() {
                           {nearbyCount > 0 && ` ${nearbyCount} corroborating report(s) in area.`}
                         </div>
                         <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px'}}>
-                          <button onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')} style={{padding: '10px 6px', borderRadius: '8px', border: 'none', background: '#4caf5022', color: '#4caf50', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #4caf5044'}}>✅ Mark Credible</button>
-                          <button onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')} style={{padding: '10px 6px', borderRadius: '8px', border: 'none', background: '#f4433622', color: '#f44336', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #f4433644'}}>❌ False Alarm</button>
-                          <button onClick={() => { const n = { text: 'SYSTEM: More information requested from reporter.', time: new Date().toISOString() }; handleAddNote(selectedIncident.id); }} style={{padding: '10px 6px', borderRadius: '8px', border: 'none', background: '#ff980022', color: '#ff9800', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #ff980044'}}>🔄 Needs Info</button>
+                          <button onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')} style={{padding: '10px 6px', borderRadius: '8px', background: '#4caf5022', color: '#4caf50', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #4caf5044'}}>✅ Mark Credible</button>
+                          <button onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')} style={{padding: '10px 6px', borderRadius: '8px', background: '#f4433622', color: '#f44336', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #f4433644'}}>❌ False Alarm</button>
+                          <button onClick={() => { handleAddNote(selectedIncident.id); }} style={{padding: '10px 6px', borderRadius: '8px', background: '#ff980022', color: '#ff9800', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #ff980044'}}>🔄 Needs Info</button>
                         </div>
                       </div>
                     )}
