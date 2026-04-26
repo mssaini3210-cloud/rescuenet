@@ -283,6 +283,7 @@ export default function CitizenView() {
       await addDoc(collection(db, "incidents"), {
         type: incidentType,
         description: description,
+        voiceTranscript: description,
         severity: severity,
         location: location,
         address: address || `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`,
@@ -295,7 +296,10 @@ export default function CitizenView() {
         status: payloadStatus,
         timestamp: serverTimestamp(),
         notes: initialNotes,
-        aiScore: aiAnalysis.urgencyScore
+        aiScore: aiAnalysis.urgencyScore,
+        aiConfidence: aiAnalysis.confidence,
+        aiReason: aiAnalysis.reason,
+        aiResponseType: aiAnalysis.responseType
       });
       handleCloseModal();
     } catch (error) {
@@ -621,8 +625,8 @@ export default function CitizenView() {
                       </label>
                     </div>
                   )}
-                  {isScanning && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#ffb74d', textAlign: 'center', fontWeight: 'bold', animation: 'pulse 1.5s infinite'}}>Scanning Image with AI...</div>}
-                  {!isScanning && imageFile && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#81c784', textAlign: 'center', fontWeight: '500'}}>✓ Attached & Scanned: {imageFile.name}</div>}
+                  {isScanning && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#ffb74d', textAlign: 'center', fontWeight: 'bold', animation: 'pulse 1.5s infinite'}}>⚡ NEXUS Vision Engine Scanning...</div>}
+                  {!isScanning && imageFile && <div style={{width: '100%', marginTop: '10px', fontSize: '13px', color: '#81c784', textAlign: 'center', fontWeight: '500'}}>✓ NEXUS Scan Complete: {imageFile.name}</div>}
                 </div>
 
                 <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'space-between' }}>

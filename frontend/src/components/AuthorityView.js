@@ -371,122 +371,176 @@ export default function AuthorityView() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="modal-header">
-                  <h2>{selectedIncident.type} Incident</h2>
-                  <button className="close-btn" onClick={() => setSelectedIncident(null)}>&times;</button>
-                </div>
+            ) : (() => {
+                const conf = selectedIncident.aiConfidence || 0;
+                const confColor = conf >= 85 ? '#4caf50' : conf >= 60 ? '#ff9800' : '#f44336';
+                const nearbyCount = incidents.filter(inc => {
+                  if (!inc.location || inc.id === selectedIncident.id) return false;
+                  const d = getDistanceFromLatLonInKm(inc.location.lat, inc.location.lng, selectedIncident.location.lat, selectedIncident.location.lng);
+                  const twoHrsAgo = Date.now() - 2 * 60 * 60 * 1000;
+                  const ts = inc.timestamp?.toDate?.()?.getTime?.() || 0;
+                  return d <= 2 && ts >= twoHrsAgo;
+                }).length;
 
-                <div style={{marginBottom: '20px'}}>
-                  <span className={`badge badge-${selectedIncident.status || 'reported'}`} style={{marginRight: '10px'}}>
-                    {selectedIncident.status || 'Reported'}
-                  </span>
-                  <span style={{fontSize: '13px', color: '#666', fontWeight: 600}}>
-                    {selectedIncident.severity} Severity
-                  </span>
-                  {selectedIncident.aiScore && (
-                    <span style={{fontSize: '13px', color: '#ff4b2b', fontWeight: 600, marginLeft: '10px'}}>
-                      AI Confidence: {selectedIncident.aiScore * 10}%
-                    </span>
-                  )}
-                </div>
-
-                <div style={{ background: 'rgba(255,255,255,0.05)', padding: '15px', borderRadius: '12px', marginBottom: '20px' }}>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '15px', color: '#fff' }}><strong>Address:</strong> {selectedIncident.address || 'Location GPS Only'}</p>
-                  
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
-                    {selectedIncident.tags && selectedIncident.tags.map(tag => (
-                       <span key={tag} style={{ background: 'rgba(255, 75, 43, 0.2)', color: '#ff4b2b', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '600' }}>{tag}</span>
-                    ))}
-                  </div>
-
-                  <p style={{ margin: '0 0 5px 0', fontSize: '14px', color: '#ccc' }}><strong>Involved:</strong> {selectedIncident.involvedCount || 'Unknown'} {selectedIncident.isSafe ? '(Reporter is safe)' : ''}</p>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#ccc' }}><strong>Description:</strong> {selectedIncident.description}</p>
-                  
-                  <div style={{ display: 'flex', gap: '15px', fontSize: '12px', color: '#888' }}>
-                    <span>🔋 {selectedIncident.battery || 'Unknown'}</span>
-                    <span>📶 {selectedIncident.network || 'Unknown'}</span>
-                  </div>
-
-                  {selectedIncident.imageUrl && (
-                    <div style={{ marginTop: '15px' }}>
-                      <strong style={{ fontSize: '13px', color: '#aaa', display: 'block', marginBottom: '5px' }}>Attached Evidence:</strong>
-                      <img src={selectedIncident.imageUrl} alt="Incident Evidence" style={{ width: '100%', maxHeight: '200px', objectFit: 'cover', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }} />
-                    </div>
-                  )}
-                </div>
-
-                <div className={`smart-suggestion ${getSmartSuggestion(selectedIncident).urgent ? 'urgent' : ''}`}>
-                  {getSmartSuggestion(selectedIncident).text}
-                </div>
-
-                <div className="action-buttons">
-                  {selectedIncident.status === 'reported' && (
-                    <button className="btn-action btn-verify" onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')}>
-                      Verify Incident
-                    </button>
-                  )}
-                  {selectedIncident.status === 'verified' && (
-                    <button className="btn-action btn-assign" onClick={() => handleUpdateStatus(selectedIncident.id, 'assigned')}>
-                      Assign Responder
-                    </button>
-                  )}
-                  {selectedIncident.status === 'assigned' && (
-                    <button className="btn-action btn-resolve" onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')}>
-                      Mark Resolved
-                    </button>
-                  )}
-                </div>
-
-                <div className="dispatch-panel">
-                  <h4>Emergency Dispatch Command</h4>
-                  <div className="dispatch-grid">
-                    <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>
-                      Police
-                    </button>
-                    <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>
-                      Medical
-                    </button>
-                    <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>
-                      Fire Dept
-                    </button>
-                  </div>
-                </div>
-
-                <h4 style={{marginTop: '25px', marginBottom: '10px', fontSize: '15px', color: '#333'}}>Responder Logs</h4>
-                <div className="responder-logs">
-                  {(!selectedIncident.notes || selectedIncident.notes.length === 0) ? (
-                    <p style={{color: '#999', margin: 0, fontSize: '13px'}}>No updates yet.</p>
-                  ) : (
-                    selectedIncident.notes.map((n, i) => (
-                      <div key={i} className="log-item">
-                        <span style={{color: '#888', marginRight: '8px', fontSize: '11px'}}>
-                          {new Date(n.time).toLocaleTimeString()}
-                        </span>
-                        {n.text}
+                return (
+                  <>
+                    {/* HEADER */}
+                    <div className="modal-header" style={{borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '14px', marginBottom: '16px'}}>
+                      <div>
+                        <div style={{fontSize: '11px', color: '#666', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px'}}>
+                          ID: {selectedIncident.id?.slice(0, 8).toUpperCase()} · {selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : 'Unknown time'}
+                        </div>
+                        <h2 style={{margin: 0, fontSize: '20px'}}>{selectedIncident.type} Incident</h2>
                       </div>
-                    ))
-                  )}
-                </div>
+                      <button className="close-btn" onClick={() => setSelectedIncident(null)}>&times;</button>
+                    </div>
 
-                <form 
-                  className="log-input-group" 
-                  onSubmit={(e) => { e.preventDefault(); handleAddNote(selectedIncident.id); }}
-                >
-                  <input 
-                    type="text" 
-                    placeholder="e.g., Ambulance dispatched..."
-                    value={responderNote}
-                    onChange={(e) => setResponderNote(e.target.value)}
-                  />
-                  <button type="submit">Update</button>
-                </form>
-              </>
-            )}
+                    {/* AI CONFIDENCE + STATUS ROW */}
+                    <div style={{display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '16px'}}>
+                      <span className={`badge badge-${selectedIncident.status || 'reported'}`}>{selectedIncident.status || 'Reported'}</span>
+                      <span style={{fontSize: '13px', color: '#888', fontWeight: 600}}>{selectedIncident.severity} Severity</span>
+                      <span style={{
+                        padding: '4px 14px', borderRadius: '20px', fontSize: '13px', fontWeight: 800,
+                        background: confColor + '22', border: `1px solid ${confColor}`, color: confColor
+                      }}>
+                        AI: {conf}% Confidence
+                      </span>
+                      <span style={{fontSize: '12px', color: '#555'}}>Detected by TensorFlow.js + Geolocation</span>
+                    </div>
+
+                    {/* NEXUS AI REMARKS */}
+                    {selectedIncident.aiReason && (
+                      <div style={{background: 'linear-gradient(135deg, rgba(255,75,43,0.08), rgba(255,75,43,0.02))', border: '1px solid rgba(255,75,43,0.25)', borderRadius: '12px', padding: '14px', marginBottom: '16px'}}>
+                        <div style={{fontSize: '11px', color: '#ff4b2b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px'}}>⚡ NEXUS Engine Remark</div>
+                        <div style={{fontSize: '13px', color: '#ddd', lineHeight: '1.6'}}>{selectedIncident.aiReason}</div>
+                        {selectedIncident.aiResponseType && (
+                          <div style={{marginTop: '8px', fontSize: '12px', color: '#ff9800', fontWeight: 600}}>
+                            → Suggested Dispatch: {selectedIncident.aiResponseType}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* CONTEXT CARD */}
+                    <div style={{background: 'rgba(255,255,255,0.04)', borderRadius: '12px', padding: '14px', marginBottom: '14px'}}>
+                      <div style={{fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px'}}>📍 Location & Context</div>
+                      <p style={{margin: '0 0 8px 0', fontSize: '14px', color: '#fff'}}>{selectedIncident.address || `${selectedIncident.location?.lat?.toFixed(4)}°N, ${selectedIncident.location?.lng?.toFixed(4)}°E`}</p>
+                      <div style={{display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px'}}>
+                        {(selectedIncident.tags || []).map(tag => (
+                          <span key={tag} style={{background: 'rgba(255,75,43,0.18)', color: '#ff6b4a', padding: '3px 10px', borderRadius: '12px', fontSize: '11px', fontWeight: 700}}>{tag}</span>
+                        ))}
+                      </div>
+                      <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px', color: '#bbb'}}>
+                        <span>👥 {selectedIncident.involvedCount || 'Unknown'} involved</span>
+                        <span>{selectedIncident.isSafe ? '✅ Reporter safe' : '⚠️ Safety unknown'}</span>
+                        <span>🔋 {selectedIncident.battery || 'Unknown'}</span>
+                        <span>📶 {selectedIncident.network || 'Unknown'}</span>
+                      </div>
+                    </div>
+
+                    {/* VOICE TRANSCRIPT */}
+                    {selectedIncident.voiceTranscript && (
+                      <div style={{background: 'rgba(66,165,245,0.06)', border: '1px solid rgba(66,165,245,0.2)', borderRadius: '12px', padding: '12px', marginBottom: '14px'}}>
+                        <div style={{fontSize: '11px', color: '#42a5f5', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px'}}>🎙️ Voice Transcript</div>
+                        <p style={{margin: 0, fontSize: '13px', color: '#ccc', fontStyle: 'italic', lineHeight: '1.6'}}>"{selectedIncident.voiceTranscript}"</p>
+                      </div>
+                    )}
+
+                    {/* EVIDENCE IMAGE */}
+                    {selectedIncident.imageUrl && (
+                      <div style={{marginBottom: '14px'}}>
+                        <div style={{fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px'}}>📷 NEXUS Vision Evidence</div>
+                        <img src={selectedIncident.imageUrl} alt="Evidence" style={{width: '100%', maxHeight: '220px', objectFit: 'cover', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.08)'}} />
+                      </div>
+                    )}
+
+                    {/* NEARBY RISK */}
+                    {nearbyCount > 0 && (
+                      <div style={{background: 'rgba(255,152,0,0.08)', border: '1px solid rgba(255,152,0,0.25)', borderRadius: '12px', padding: '12px', marginBottom: '14px'}}>
+                        <div style={{fontSize: '11px', color: '#ff9800', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '4px'}}>⚠️ Nearby Risk Alert</div>
+                        <div style={{fontSize: '13px', color: '#ffd180'}}>{nearbyCount} other incident{nearbyCount > 1 ? 's' : ''} reported within 2km in the last 2 hours — potential hotzone.</div>
+                      </div>
+                    )}
+
+                    {/* SMART VERIFICATION */}
+                    {selectedIncident.status === 'reported' && (
+                      <div style={{background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', padding: '14px', marginBottom: '14px'}}>
+                        <div style={{fontSize: '11px', color: '#aaa', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px'}}>🔍 Smart Verification</div>
+                        <div style={{fontSize: '12px', color: '#888', marginBottom: '10px'}}>
+                          {conf >= 85 ? '✅ AI high-confidence — likely genuine.' : conf >= 60 ? '🟡 Moderate confidence — review evidence before verifying.' : '🔴 Low confidence — manual review strongly recommended.'}
+                          {nearbyCount > 0 && ` ${nearbyCount} corroborating report(s) in area.`}
+                        </div>
+                        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px'}}>
+                          <button onClick={() => handleUpdateStatus(selectedIncident.id, 'verified')} style={{padding: '10px 6px', borderRadius: '8px', border: 'none', background: '#4caf5022', color: '#4caf50', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #4caf5044'}}>✅ Mark Credible</button>
+                          <button onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')} style={{padding: '10px 6px', borderRadius: '8px', border: 'none', background: '#f4433622', color: '#f44336', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #f4433644'}}>❌ False Alarm</button>
+                          <button onClick={() => { const n = { text: 'SYSTEM: More information requested from reporter.', time: new Date().toISOString() }; handleAddNote(selectedIncident.id); }} style={{padding: '10px 6px', borderRadius: '8px', border: 'none', background: '#ff980022', color: '#ff9800', fontWeight: 700, fontSize: '12px', cursor: 'pointer', border: '1px solid #ff980044'}}>🔄 Needs Info</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedIncident.status === 'verified' && (
+                      <button className="btn-action btn-assign" onClick={() => handleUpdateStatus(selectedIncident.id, 'assigned')} style={{width: '100%', marginBottom: '14px'}}>Assign Responder</button>
+                    )}
+                    {selectedIncident.status === 'assigned' && (
+                      <button className="btn-action btn-resolve" onClick={() => handleUpdateStatus(selectedIncident.id, 'resolved')} style={{width: '100%', marginBottom: '14px'}}>Mark Resolved</button>
+                    )}
+
+                    {/* DISPATCH */}
+                    <div className="dispatch-panel">
+                      <h4>Emergency Dispatch Command</h4>
+                      <div className="dispatch-grid">
+                        <button className="btn-dispatch bg-police" onClick={() => handleDispatch('Police')}>🚓 Police</button>
+                        <button className="btn-dispatch bg-ambulance" onClick={() => handleDispatch('Medical')}>🚑 Medical</button>
+                        <button className="btn-dispatch bg-fire" onClick={() => handleDispatch('Fire Dept')}>🚒 Fire Dept</button>
+                      </div>
+                    </div>
+
+                    {/* DISPATCH MAP BUTTON */}
+                    <a href={`/dispatch/${selectedIncident.id}`} target="_blank" rel="noopener noreferrer" style={{
+                      display: 'block', textAlign: 'center', marginTop: '12px', marginBottom: '14px',
+                      padding: '12px', borderRadius: '10px', background: 'linear-gradient(135deg, #1a237e, #283593)',
+                      color: '#fff', fontWeight: 700, fontSize: '14px', textDecoration: 'none',
+                      border: '1px solid rgba(92,107,192,0.5)', letterSpacing: '0.5px',
+                    }}>
+                      🗺️ Open Dispatch Map — Nearest Hospitals & Units
+                    </a>
+
+                    {/* TIMELINE LOGS */}
+                    <div style={{fontSize: '11px', color: '#666', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px'}}>📋 Activity Timeline</div>
+                    <div style={{position: 'relative', paddingLeft: '24px', marginBottom: '14px'}}>
+                      <div style={{position: 'absolute', left: '8px', top: 0, bottom: 0, width: '2px', background: 'rgba(255,255,255,0.08)'}}></div>
+                      {[
+                        {icon: '📍', text: `Incident reported — ${selectedIncident.severity} ${selectedIncident.type}`, time: selectedIncident.timestamp ? new Date(selectedIncident.timestamp.toDate()).toLocaleTimeString() : ''},
+                        ...(selectedIncident.notes || []).map(n => ({
+                          icon: n.text.includes('Dispatched') ? '🚀' : n.text.includes('verified') ? '✅' : n.text.includes('resolved') ? '🏁' : n.text.startsWith('[AI') ? '⚡' : '📝',
+                          text: n.text.replace('[AI SYSTEM] ', ''),
+                          time: new Date(n.time).toLocaleTimeString()
+                        }))
+                      ].map((entry, i) => (
+                        <div key={i} style={{display: 'flex', gap: '10px', marginBottom: '10px', position: 'relative'}}>
+                          <div style={{position: 'absolute', left: '-20px', top: '0px', width: '16px', height: '16px', borderRadius: '50%', background: '#1a1a1a', border: '2px solid rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px'}}>{entry.icon}</div>
+                          <div>
+                            <div style={{fontSize: '12px', color: '#ddd', lineHeight: '1.4'}}>{entry.text}</div>
+                            <div style={{fontSize: '10px', color: '#555', marginTop: '2px'}}>{entry.time}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* ADD NOTE */}
+                    <form className="log-input-group" onSubmit={(e) => { e.preventDefault(); handleAddNote(selectedIncident.id); }}>
+                      <input type="text" placeholder="Add responder note..." value={responderNote} onChange={(e) => setResponderNote(e.target.value)} />
+                      <button type="submit">Update</button>
+                    </form>
+                  </>
+                );
+              })()
+            }
+
           </div>
         </div>
       )}
     </>
   );
 }
+

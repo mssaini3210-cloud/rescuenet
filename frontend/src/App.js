@@ -2,8 +2,11 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from "react-router-dom";
 import CitizenView from "./components/CitizenView";
 import AuthorityView from "./components/AuthorityView";
+import DispatchMapView from "./components/DispatchMapView";
 import { useJsApiLoader } from "@react-google-maps/api";
 import "./App.css";
+
+const LIBRARIES = ['places'];
 
 function NavigationBar() {
   const location = useLocation();
@@ -43,7 +46,8 @@ function SplashScreen() {
 function App() {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: "AIzaSyDHY9Jn_bwWnHZdn5f_fGjy9J9AKDqupPk"
+    googleMapsApiKey: "AIzaSyDHY9Jn_bwWnHZdn5f_fGjy9J9AKDqupPk",
+    libraries: LIBRARIES,
   });
 
   if (!isLoaded) {
@@ -56,6 +60,7 @@ function App() {
       <Routes>
         <Route path="/" element={<CitizenView />} />
         <Route path="/authority" element={<AuthorityView />} />
+        <Route path="/dispatch/:incidentId" element={<DispatchMapView />} />
       </Routes>
     </Router>
   );
