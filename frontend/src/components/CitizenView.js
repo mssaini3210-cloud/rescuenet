@@ -261,7 +261,7 @@ export default function CitizenView() {
       audio.play().catch(e => console.log('Audio autoplay blocked', e));
 
       const deviceContext = await getDeviceContext();
-      const aiAnalysis = analyzeIncident({
+      const aiAnalysis = await analyzeIncident({
         description,
         severity,
         location,
